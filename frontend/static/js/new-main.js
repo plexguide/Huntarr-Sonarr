@@ -4317,15 +4317,27 @@ let huntarrUI = {
         // Show loading state
         appContainer.innerHTML = '<div class="loading-panel"><i class="fas fa-spinner fa-spin"></i> Loading ' + app + ' settings...</div>';
         
-        // Fetch settings for this app
-        fetch(`./api/settings/${app}`)
-            .then(response => {
+        // Fetch both app settings and Swaparr settings for proper dependency checking
+        Promise.all([
+            fetch(`./api/settings/${app}`).then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            }),
+            fetch('./api/settings/swaparr').then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 return response.json();
             })
-            .then(appSettings => {
+        ])
+            .then(([appSettings, swaparrSettings]) => {
+                // Store Swaparr settings for the form generation to access
+                if (!window.huntarrUI.originalSettings) {
+                    window.huntarrUI.originalSettings = {};
+                }
+                window.huntarrUI.originalSettings.swaparr = swaparrSettings;
                 console.log(`[huntarrUI] Received settings for ${app}:`, appSettings);
                 
                 // Clear loading message

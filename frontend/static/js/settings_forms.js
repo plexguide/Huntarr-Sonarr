@@ -9,25 +9,28 @@ const SettingsForms = {
     isSwaparrGloballyEnabled: function() {
         // Try to get Swaparr settings from cache or current settings
         try {
-            // Check if we have cached settings
+            // First check if we have cached settings
             const cachedSettings = localStorage.getItem('huntarr-settings-cache');
             if (cachedSettings) {
                 const settings = JSON.parse(cachedSettings);
                 if (settings.swaparr && settings.swaparr.enabled !== undefined) {
+                    console.log('[SettingsForms] Swaparr enabled from cache:', settings.swaparr.enabled);
                     return settings.swaparr.enabled === true;
                 }
             }
             
             // Fallback: check if we have current settings loaded
             if (window.huntarrUI && window.huntarrUI.originalSettings && window.huntarrUI.originalSettings.swaparr) {
+                console.log('[SettingsForms] Swaparr enabled from originalSettings:', window.huntarrUI.originalSettings.swaparr.enabled);
                 return window.huntarrUI.originalSettings.swaparr.enabled === true;
             }
             
-            // Default to true if we can't determine the state (enable the field by default)
-            return true;
+            // Last resort: Default to false if we can't determine the state (hide by default)
+            console.log('[SettingsForms] Could not determine Swaparr status, defaulting to false');
+            return false;
         } catch (e) {
             console.warn('[SettingsForms] Error checking Swaparr global status:', e);
-            return true; // Default to enabling the field if there's an error
+            return false; // Default to hiding the field if there's an error
         }
     },
     
@@ -39,6 +42,10 @@ const SettingsForms = {
         
         // Add data-app-type attribute to container
         container.setAttribute('data-app-type', 'sonarr');
+        
+        // Check Swaparr status and log for debugging
+        const swaparrEnabled = this.isSwaparrGloballyEnabled();
+        console.log('[SettingsForms] Generating Sonarr form, Swaparr globally enabled:', swaparrEnabled);
         
         // Make sure the instances array exists
         if (!settings.instances || !Array.isArray(settings.instances) || settings.instances.length === 0) {
@@ -187,14 +194,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${swaparrEnabled ? `
                         <div class="setting-item">
                             <label for="sonarr-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="sonarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="sonarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Sonarr instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Sonarr instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -2099,6 +2108,21 @@ const SettingsForms = {
                 
                 // Update disabled state of Swaparr fields in all app forms
                 SettingsForms.updateSwaparrFieldsDisabledState();
+                
+                // Regenerate Sonarr form to show/hide Swaparr toggles
+                const sonarrContainer = document.getElementById('sonarrContainer');
+                if (sonarrContainer && window.huntarrUI && window.huntarrUI.currentSection === 'sonarr') {
+                    // Get current settings and regenerate form
+                    fetch('./api/settings/sonarr')
+                        .then(response => response.json())
+                        .then(settings => {
+                            SettingsForms.generateSonarrForm(sonarrContainer, settings);
+                            console.log('[SettingsForms] Regenerated Sonarr form after global Swaparr toggle change');
+                        })
+                        .catch(error => {
+                            console.error('[SettingsForms] Error regenerating Sonarr form:', error);
+                        });
+                }
             });
             
             // Initial disabled state update

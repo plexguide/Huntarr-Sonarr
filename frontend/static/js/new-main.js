@@ -1739,7 +1739,15 @@ let huntarrUI = {
                 settings[key] = input.checked;
             } else if (input.type === 'number') {
                 // Handle potential empty string for numbers, store as null or default?
-                settings[key] = input.value === '' ? null : parseInt(input.value, 10);
+                let numValue = input.value === '' ? null : parseInt(input.value, 10);
+                
+                // Special handling for sleep_duration fields - convert minutes to seconds
+                if (key === 'sleep_duration' && numValue !== null) {
+                    numValue = numValue * 60; // Convert minutes to seconds
+                    console.log(`[huntarrUI] Converted ${app} sleep_duration from ${input.value} minutes to ${numValue} seconds`);
+                }
+                
+                settings[key] = numValue;
             } else {
                 settings[key] = input.value.trim();
             }

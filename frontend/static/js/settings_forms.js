@@ -2073,7 +2073,7 @@ const SettingsForms = {
 
         
         // Initialize tag systems
-        this.initializeTagSystem(settings);
+        SettingsForms.initializeTagSystem(settings);
 
         // Add event listener for global Swaparr enabled toggle to control instance visibility
         const swaparrEnabledToggle = container.querySelector('#swaparr_enabled');
@@ -2098,12 +2098,12 @@ const SettingsForms = {
                 }
                 
                 // Update disabled state of Swaparr fields in all app forms
-                this.updateSwaparrFieldsDisabledState();
+                SettingsForms.updateSwaparrFieldsDisabledState();
             });
             
             // Initial disabled state update
             setTimeout(() => {
-                this.updateSwaparrFieldsDisabledState();
+                SettingsForms.updateSwaparrFieldsDisabledState();
             }, 100);
         }
     },
@@ -2134,7 +2134,7 @@ const SettingsForms = {
             extensionInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    this.addExtensionTag();
+                    SettingsForms.addExtensionTag();
                 }
             });
         }
@@ -2143,7 +2143,7 @@ const SettingsForms = {
             patternInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    this.addPatternTag();
+                    SettingsForms.addPatternTag();
                 }
             });
         }
@@ -2152,15 +2152,15 @@ const SettingsForms = {
             qualityInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
-                    this.addQualityTag();
+                    SettingsForms.addQualityTag();
                 }
             });
         }
         
         // Make functions globally accessible
-        window.addExtensionTag = () => this.addExtensionTag();
-        window.addPatternTag = () => this.addPatternTag();
-        window.addQualityTag = () => this.addQualityTag();
+        window.addExtensionTag = () => SettingsForms.addExtensionTag();
+        window.addPatternTag = () => SettingsForms.addPatternTag();
+        window.addQualityTag = () => SettingsForms.addQualityTag();
     },
     
     // Load tags into a tag list
@@ -2170,7 +2170,7 @@ const SettingsForms = {
         
         container.innerHTML = '';
         tags.forEach(tag => {
-            this.createTagElement(container, tag);
+            SettingsForms.createTagElement(container, tag);
         });
     },
     
@@ -2209,7 +2209,7 @@ const SettingsForms = {
             return;
         }
         
-        this.createTagElement(container, value);
+        SettingsForms.createTagElement(container, value);
         input.value = '';
     },
     
@@ -2230,7 +2230,7 @@ const SettingsForms = {
             return;
         }
         
-        this.createTagElement(container, value);
+        SettingsForms.createTagElement(container, value);
         input.value = '';
     },
     
@@ -2251,7 +2251,7 @@ const SettingsForms = {
             return;
         }
         
-        this.createTagElement(container, value);
+        SettingsForms.createTagElement(container, value);
         input.value = '';
     },
     

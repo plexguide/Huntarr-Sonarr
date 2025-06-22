@@ -1350,40 +1350,56 @@ let huntarrUI = {
     setupSettingsAutoSave: function() {
         console.log('[huntarrUI] Setting up immediate settings auto-save');
         
-        // Add event listeners to the settings container
+        // Add event listeners to both settings container and individual app sections
         const settingsContainer = document.getElementById('settingsSection');
-        if (settingsContainer) {
+        const swaparrSection = document.getElementById('swaparrSection');
+        
+        // Function to add auto-save listeners to a container
+        const addAutoSaveListeners = (container, containerName) => {
+            if (!container) return;
+            
+            console.log(`[huntarrUI] Adding auto-save listeners to ${containerName}`);
+            
             // Listen for input events (for text inputs, textareas, range sliders)
-            settingsContainer.addEventListener('input', (event) => {
+            container.addEventListener('input', (event) => {
                 if (event.target.matches('input, textarea')) {
+                    console.log(`[huntarrUI] Input change detected in ${containerName}:`, event.target.id);
                     this.triggerSettingsAutoSave();
                 }
             });
             
             // Listen for change events (for checkboxes, selects, radio buttons)
-            settingsContainer.addEventListener('change', (event) => {
+            container.addEventListener('change', (event) => {
                 if (event.target.matches('input, select, textarea')) {
-                    // Special handling for settings that can take effect immediately
-                    if (event.target.id === 'low_usage_mode') {
-                        console.log('[huntarrUI] Low Usage Mode toggled, applying immediately');
-                        this.applyLowUsageMode(event.target.checked);
-                    } else if (event.target.id === 'timezone') {
-                        console.log('[huntarrUI] Timezone changed, applying immediately');
-                        this.applyTimezoneChange(event.target.value);
-                    } else if (event.target.id === 'auth_mode') {
-                        console.log('[huntarrUI] Authentication mode changed, applying immediately');
-                        this.applyAuthModeChange(event.target.value);
-                    } else if (event.target.id === 'check_for_updates') {
-                        console.log('[huntarrUI] Update checking toggled, applying immediately');
-                        this.applyUpdateCheckingChange(event.target.checked);
+                    console.log(`[huntarrUI] Change event detected in ${containerName}:`, event.target.id);
+        
+                    // Special handling for settings that can take effect immediately (only for general settings)
+                    if (containerName === 'settingsSection') {
+                        if (event.target.id === 'low_usage_mode') {
+                            console.log('[huntarrUI] Low Usage Mode toggled, applying immediately');
+                            this.applyLowUsageMode(event.target.checked);
+                        } else if (event.target.id === 'timezone') {
+                            console.log('[huntarrUI] Timezone changed, applying immediately');
+                            this.applyTimezoneChange(event.target.value);
+                        } else if (event.target.id === 'auth_mode') {
+                            console.log('[huntarrUI] Authentication mode changed, applying immediately');
+                            this.applyAuthModeChange(event.target.value);
+                        } else if (event.target.id === 'check_for_updates') {
+                            console.log('[huntarrUI] Update checking toggled, applying immediately');
+                            this.applyUpdateCheckingChange(event.target.checked);
+                        }
                     }
                     
                     this.triggerSettingsAutoSave();
                 }
             });
-            
-            console.log('[huntarrUI] Settings auto-save listeners added');
-        }
+        };
+        
+        // Add listeners to all relevant containers
+        addAutoSaveListeners(settingsContainer, 'settingsSection');
+        addAutoSaveListeners(swaparrSection, 'swaparrSection');
+        
+        console.log('[huntarrUI] Settings auto-save listeners added to all containers');
     },
 
     // Trigger immediate auto-save
@@ -1423,26 +1439,62 @@ let huntarrUI = {
         console.log(`[huntarrUI] Auto-saving settings for: ${app}`);
         window._settingsCurrentlySaving = true;
         
-        // Use the existing saveSettings logic but make it silent
-        const originalShowNotification = this.showNotification;
-        
-        // Temporarily override showNotification to suppress success messages
-        this.showNotification = (message, type) => {
-            if (type === 'error') {
-                // Only show error notifications
-                originalShowNotification.call(this, message, type);
-            }
-            // Suppress success notifications for auto-save
-        };
-        
-        // Call the existing saveSettings function
-        this.saveSettings();
-        
-        // Schedule restoration of showNotification after save completes
-        setTimeout(() => {
-            this.showNotification = originalShowNotification;
+        // Use custom auto-save logic that doesn't regenerate the form
+        let settings = this.getFormSettings(app);
+
+        if (!settings) {
+            console.error(`[huntarrUI] Failed to collect settings for app: ${app}`);
             window._settingsCurrentlySaving = false;
-        }, 1000);
+            return;
+        }
+
+        console.log(`[huntarrUI] Auto-saving settings for ${app}:`, settings);
+
+        // Use the correct endpoint based on app type
+        const endpoint = app === 'general' ? './api/settings/general' : `./api/settings/${app}`;
+        
+        HuntarrUtils.fetchWithTimeout(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(settings)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(errData => {
+                    throw new Error(errData.error || `HTTP error! status: ${response.status}`);
+                }).catch(() => {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(savedConfig => {
+            console.log(`[huntarrUI] Auto-save completed for ${app}`);
+            
+            // Update original settings state but DON'T regenerate the form
+            if (typeof savedConfig === 'object' && savedConfig !== null) {
+                this.originalSettings = JSON.parse(JSON.stringify(savedConfig));
+                
+                // Cache Swaparr settings globally if they were updated
+                if (app === 'swaparr') {
+                    const swaparrData = savedConfig.swaparr || (savedConfig && !savedConfig.sonarr && !savedConfig.radarr ? savedConfig : null);
+                    if (swaparrData) {
+                        window.swaparrSettings = swaparrData;
+                        console.log('[huntarrUI] Updated Swaparr settings cache:', window.swaparrSettings);
+                    }
+                }
+            }
+            
+            window._settingsCurrentlySaving = false;
+        })
+        .catch(error => {
+            console.error(`[huntarrUI] Auto-save error for ${app}:`, error);
+            // Show error notification for auto-save failures
+            this.showNotification(`Auto-save failed: ${error.message}`, 'error');
+            window._settingsCurrentlySaving = false;
+        });
     },
 
     // Clean URL by removing special characters from the end
@@ -1513,6 +1565,59 @@ let huntarrUI = {
             });
             
             console.log('[huntarrUI] Final general settings:', settings);
+            return settings;
+        }
+        
+        // Special handling for Swaparr (doesn't use instances)
+        if (app === 'swaparr') {
+            console.log('[huntarrUI] Processing Swaparr settings');
+            
+            // Get all inputs and select elements in the Swaparr form
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                let key = input.id;
+                let value;
+                
+                if (input.type === 'checkbox') {
+                    value = input.checked;
+                } else if (input.type === 'number') {
+                    value = input.value === '' ? null : parseInt(input.value, 10);
+                } else {
+                    value = input.value.trim();
+                }
+                
+                console.log(`[huntarrUI] Processing Swaparr input: ${key} = ${value}`);
+                
+                // Remove 'swaparr_' prefix from key
+                if (key.startsWith('swaparr_')) {
+                    key = key.substring(8); // Remove 'swaparr_' prefix
+                }
+                
+                // Handle special cases for tag inputs and other complex fields
+                if (key.includes('_input') || key.includes('_tags') || key.includes('stars-count')) {
+                    return; // Skip these helper fields
+                }
+                
+                if (key && value !== undefined) {
+                    // Handle special duration conversion for sleep_duration (minutes to seconds)
+                    if (key === 'sleep_duration' && value !== null) {
+                        settings[key] = value * 60; // Convert minutes to seconds
+                    } else {
+                        settings[key] = value;
+                    }
+                }
+            });
+            
+            // Handle tag-based settings (malicious extensions, suspicious patterns, quality patterns)
+            const maliciousExtensions = Array.from(document.querySelectorAll('#swaparr_malicious_extensions_tags .tag')).map(tag => tag.textContent.trim());
+            const suspiciousPatterns = Array.from(document.querySelectorAll('#swaparr_suspicious_patterns_tags .tag')).map(tag => tag.textContent.trim());
+            const qualityPatterns = Array.from(document.querySelectorAll('#swaparr_quality_patterns_tags .tag')).map(tag => tag.textContent.trim());
+            
+            if (maliciousExtensions.length > 0) settings.malicious_file_extensions = maliciousExtensions;
+            if (suspiciousPatterns.length > 0) settings.suspicious_filename_patterns = suspiciousPatterns;
+            if (qualityPatterns.length > 0) settings.blocked_quality_patterns = qualityPatterns;
+            
+            console.log('[huntarrUI] Final Swaparr settings:', settings);
             return settings;
         }
         
@@ -4141,6 +4246,10 @@ let huntarrUI = {
     loadIndividualApp: function(app) {
         console.log(`[huntarrUI] Loading individual app: ${app}`);
         
+        // Set current settings tab for auto-save functionality
+        this.currentSettingsTab = app;
+        console.log(`[huntarrUI] Set currentSettingsTab to: ${this.currentSettingsTab}`);
+        
         // Get the container for this app
         const appContainer = document.getElementById(app + 'Container');
         if (!appContainer) {
@@ -4169,10 +4278,11 @@ let huntarrUI = {
                 if (typeof SettingsForms !== 'undefined') {
                     const formFunction = SettingsForms[`generate${app.charAt(0).toUpperCase()}${app.slice(1)}Form`];
                     if (typeof formFunction === 'function') {
-                        // Create a form container with the app-type attribute
+                        // Create a form container with the app-type attribute and correct ID for auto-save
                         const formElement = document.createElement('form');
                         formElement.classList.add('settings-form');
                         formElement.setAttribute('data-app-type', app);
+                        formElement.id = `${app}Settings`; // Add ID for getFormSettings to find
                         appContainer.appendChild(formElement);
                         
                         // Use .call() to set the 'this' context correctly

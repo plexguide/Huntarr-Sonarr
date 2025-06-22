@@ -1769,6 +1769,18 @@ let huntarrUI = {
             // Skip empty keys or keys that are just numbers (unlikely but possible)
             if (!key || /^\d+$/.test(key)) return;
 
+            // Handle custom tags specially - group them into custom_tags object
+            if (key.startsWith('custom_tag_')) {
+                if (!settings.custom_tags) {
+                    settings.custom_tags = {};
+                }
+                
+                const tagType = key.substring(11); // Remove 'custom_tag_' prefix
+                settings.custom_tags[tagType] = input.value.trim();
+                console.log(`[huntarrUI] Collected custom tag for ${app}: ${tagType} = ${input.value.trim()}`);
+                return;
+            }
+
             // Store the value
             if (input.type === 'checkbox') {
                 settings[key] = input.checked;
@@ -4383,7 +4395,26 @@ let huntarrUI = {
                             SettingsForms.updateDurationDisplay();
                         }
                         
-                        console.log(`[huntarrUI] Successfully loaded ${app} form`);
+                        // Add auto-save listeners directly to the form after generation
+                        console.log(`[huntarrUI] Adding auto-save listeners to ${app} form`);
+                        
+                        // Listen for input events (for text inputs, textareas, range sliders)
+                        formElement.addEventListener('input', (event) => {
+                            if (event.target.matches('input, textarea')) {
+                                console.log(`[huntarrUI] Input change detected in ${app} form:`, event.target.id, 'value:', event.target.value);
+                                huntarrUI.triggerSettingsAutoSave();
+                            }
+                        });
+                        
+                        // Listen for change events (for checkboxes, selects, radio buttons)
+                        formElement.addEventListener('change', (event) => {
+                            if (event.target.matches('input, select, textarea')) {
+                                console.log(`[huntarrUI] Change event detected in ${app} form:`, event.target.id, 'value:', event.target.value);
+                                huntarrUI.triggerSettingsAutoSave();
+                            }
+                        });
+                        
+                        console.log(`[huntarrUI] Successfully loaded ${app} form with auto-save listeners`);
                     } else {
                         console.error(`[huntarrUI] Form function not found for ${app}`);
                         appContainer.innerHTML = `<p>Error: Form function not available for ${app}</p>`;
@@ -4422,6 +4453,27 @@ let huntarrUI = {
                     // Ensure the container has the correct ID for auto-save
                     generalSettings.id = 'generalSettings';
                     SettingsForms.generateGeneralForm(generalSettings, settings.general || {});
+                    
+                    // Add auto-save listeners directly to the general settings form after generation
+                    console.log('[huntarrUI] Adding auto-save listeners to general settings form');
+                    
+                    // Listen for input events (for text inputs, textareas, range sliders)
+                    generalSettings.addEventListener('input', (event) => {
+                        if (event.target.matches('input, textarea')) {
+                            console.log('[huntarrUI] Input change detected in general form:', event.target.id, 'value:', event.target.value);
+                            huntarrUI.triggerSettingsAutoSave();
+                        }
+                    });
+                    
+                    // Listen for change events (for checkboxes, selects, radio buttons)
+                    generalSettings.addEventListener('change', (event) => {
+                        if (event.target.matches('input, select, textarea')) {
+                            console.log('[huntarrUI] Change event detected in general form:', event.target.id, 'value:', event.target.value);
+                            huntarrUI.triggerSettingsAutoSave();
+                        }
+                    });
+                    
+                    console.log('[huntarrUI] General settings form loaded with auto-save listeners');
                 } else {
                     console.error('[huntarrUI] SettingsForms not available');
                     generalSettings.innerHTML = '<p>Error: Settings forms not loaded</p>';

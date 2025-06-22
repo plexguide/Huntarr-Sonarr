@@ -2068,7 +2068,7 @@ const SettingsForms = {
         container.innerHTML = html;
         
         // Load Swaparr GitHub star count dynamically
-        this.loadSwaparrStarCount();
+        SettingsForms.loadSwaparrStarCount();
         
 
         

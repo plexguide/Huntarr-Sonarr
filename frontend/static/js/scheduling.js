@@ -44,6 +44,15 @@ window.huntarrSchedules = window.huntarrSchedules || {
         
         // Load server timezone and display current time
         loadServerTimezone();
+        
+        // Listen for settings changes that might affect timezone
+        window.addEventListener('settings-saved', function(event) {
+            console.debug('[Scheduling] Settings saved event received, reloading timezone');
+            if (event.detail && event.detail.app === 'general') {
+                // Reload the server timezone to reflect changes immediately
+                loadServerTimezone();
+            }
+        });
     });
 
 /**
@@ -741,6 +750,11 @@ function updateTimezoneDisplay(serverTimezone) {
     }
 }
 
+// Global variables to track timezone state
+let currentServerTimezone = 'UTC';
+let timezoneUpdateInterval = null;
+let resizeHandlerAdded = false;
+
 /**
  * Load server timezone from API and update display
  */
@@ -753,22 +767,38 @@ function loadServerTimezone() {
             const serverTimezone = data.general?.timezone || 'UTC';
             console.debug('Server timezone loaded:', serverTimezone);
             
-            // Update timezone display with mobile handling
-            updateTimezoneDisplay(serverTimezone);
-            
-            // Update current time in server timezone
-            updateServerTime(serverTimezone);
-            
-            // Update time inputs to show server current time
-            updateTimeInputsWithServerTime(serverTimezone);
-            
-            // Update time every minute
-            setInterval(() => updateServerTime(serverTimezone), 60000);
-            
-            // Handle window resize to adjust mobile/desktop display
-            window.addEventListener('resize', () => {
+            // Only update if timezone actually changed
+            if (currentServerTimezone !== serverTimezone) {
+                console.debug(`Timezone changed from ${currentServerTimezone} to ${serverTimezone}`);
+                currentServerTimezone = serverTimezone;
+                
+                // Clear existing interval if it exists
+                if (timezoneUpdateInterval) {
+                    clearInterval(timezoneUpdateInterval);
+                }
+                
+                // Update timezone display with mobile handling
                 updateTimezoneDisplay(serverTimezone);
-            });
+                
+                // Update current time in server timezone
+                updateServerTime(serverTimezone);
+                
+                // Update time inputs to show server current time
+                updateTimeInputsWithServerTime(serverTimezone);
+                
+                // Set up new interval for time updates
+                timezoneUpdateInterval = setInterval(() => updateServerTime(serverTimezone), 60000);
+                
+                // Add resize handler only once
+                if (!resizeHandlerAdded) {
+                    window.addEventListener('resize', () => {
+                        updateTimezoneDisplay(currentServerTimezone);
+                    });
+                    resizeHandlerAdded = true;
+                }
+            } else {
+                console.debug('Timezone unchanged, skipping update');
+            }
         })
         .catch(error => {
             console.error('Failed to load server timezone:', error);

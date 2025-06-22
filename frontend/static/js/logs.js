@@ -39,6 +39,17 @@ window.LogsModule = {
         this.loadLogsFromAPI(this.currentLogApp);
         this.setupLogPolling(this.currentLogApp);
         
+        // Listen for settings changes that might affect timezone
+        window.addEventListener('settings-saved', (event) => {
+            console.debug('[LogsModule] Settings saved event received, reloading timezone and logs');
+            if (event.detail && event.detail.app === 'general') {
+                // Reload the user timezone to reflect changes immediately
+                this.loadUserTimezone();
+                // Reload current logs to show timestamps in new timezone
+                this.loadLogsFromAPI(this.currentLogApp, false);
+            }
+        });
+        
         this.initialized = true;
         console.log('[LogsModule] Initialization complete');
     },

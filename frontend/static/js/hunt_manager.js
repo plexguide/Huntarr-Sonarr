@@ -23,6 +23,15 @@ const huntManagerModule = {
         this.cacheElements();
         this.setupEventListeners();
         
+        // Listen for settings changes that might affect timezone
+        window.addEventListener('settings-saved', (event) => {
+            console.debug('[HuntManager] Settings saved event received, reloading hunt history');
+            if (event.detail && event.detail.app === 'general') {
+                // Reload hunt history to show timestamps in new timezone
+                this.loadHuntHistory();
+            }
+        });
+        
         // Initial load if hunt manager is active section
         if (huntarrUI && huntarrUI.currentSection === 'hunt-manager') {
             this.loadHuntHistory();

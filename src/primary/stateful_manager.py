@@ -362,21 +362,18 @@ def get_state_management_summary(app_type: str, instance_name: str, instance_hou
         if lock_info and lock_info.get("expires_at"):
             import datetime
             expires_at = lock_info["expires_at"]
-            # Convert to user timezone for display with error handling
+            
+            # Simple, reliable timezone conversion
             try:
                 user_tz = _get_user_timezone()
                 utc_time = datetime.datetime.fromtimestamp(expires_at, tz=datetime.timezone.utc)
                 local_time = utc_time.astimezone(user_tz)
                 next_reset_time = local_time.strftime('%Y-%m-%d %H:%M:%S')
+                stateful_logger.debug(f"Reset time converted to {user_tz.zone}: {next_reset_time}")
             except Exception as e:
-                stateful_logger.warning(f"Timezone conversion failed for {app_type}/{instance_name}, using UTC: {e}")
-                try:
-                    # Fallback to UTC if timezone conversion fails
-                    utc_time = datetime.datetime.fromtimestamp(expires_at, tz=datetime.timezone.utc)
-                    next_reset_time = utc_time.strftime('%Y-%m-%d %H:%M:%S UTC')
-                except Exception as utc_e:
-                    stateful_logger.error(f"UTC conversion also failed for {app_type}/{instance_name}: {utc_e}")
-                    next_reset_time = f"Reset time unavailable"
+                stateful_logger.error(f"Timezone conversion failed for {app_type}/{instance_name}: {e}")
+                # If conversion fails, return None so frontend shows "Calculating..."
+                next_reset_time = None
         else:
             # This should not happen since initialize_instance_state_management was called above
             stateful_logger.warning(f"No lock info found for {app_type}/{instance_name} after initialization")
@@ -400,23 +397,26 @@ def get_state_management_summary(app_type: str, instance_name: str, instance_hou
 def _get_user_timezone():
     """Get the user's selected timezone from general settings"""
     try:
-        from src.primary.utils.timezone_utils import get_user_timezone
-        # Add timeout protection by wrapping in additional try-catch
-        try:
-            user_tz = get_user_timezone()
-            # Validate the timezone is actually usable
-            if user_tz and hasattr(user_tz, 'zone'):
-                return user_tz
-        except Exception as inner_e:
-            stateful_logger.warning(f"get_user_timezone() call failed: {inner_e}")
+        from src.primary.utils.timezone_utils import get_user_timezone, clear_timezone_cache
         
-        # If get_user_timezone fails, fall back to UTC immediately
-        import pytz
-        return pytz.UTC
+        # Clear cache to ensure fresh timezone data
+        clear_timezone_cache()
+        
+        # Get the user's timezone
+        user_tz = get_user_timezone()
+        
+        # Validate timezone has required attributes
+        if user_tz and hasattr(user_tz, 'zone') and hasattr(user_tz, 'localize'):
+            stateful_logger.debug(f"Using user timezone: {user_tz.zone}")
+            return user_tz
+        else:
+            stateful_logger.warning(f"Invalid timezone object: {user_tz}")
+            raise ValueError("Invalid timezone object")
+            
     except Exception as e:
-        stateful_logger.warning(f"Could not get user timezone, defaulting to UTC: {e}")
-        import pytz
-        return pytz.UTC
+        stateful_logger.error(f"Failed to get user timezone: {e}")
+        # Don't fall back to UTC - let the calling function handle the error
+        raise e
 
 def get_next_reset_time() -> Optional[str]:
     """

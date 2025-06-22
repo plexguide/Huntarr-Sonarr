@@ -3933,12 +3933,18 @@ let huntarrUI = {
         console.log(`[huntarrUI] Loading state info for ${appType}/${instanceName} (index ${instanceIndex})`);
         
         // Load state information for this specific instance using per-instance API
-        HuntarrUtils.fetchWithTimeout(`./api/stateful/summary?app_type=${appType}&instance_name=${encodeURIComponent(instanceName)}`, {
+        const apiUrl = `./api/stateful/summary?app_type=${appType}&instance_name=${encodeURIComponent(instanceName)}`;
+        console.log(`[huntarrUI] Making API call: ${apiUrl}`);
+        
+        HuntarrUtils.fetchWithTimeout(apiUrl, {
             method: 'GET'
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log(`[huntarrUI] API response status for ${appType}/${instanceName}:`, response.status);
+            return response.json();
+        })
         .then(summaryData => {
-            console.log(`[huntarrUI] State data for ${appType}/${instanceName}:`, summaryData);
+            console.log(`[huntarrUI] State data received for ${appType}/${instanceName}:`, summaryData);
             this.updateInstanceStateDisplay(appType, instanceIndex, summaryData, instanceName, customHours);
         })
         .catch(error => {
@@ -3950,24 +3956,39 @@ let huntarrUI = {
     
     // Update the instance state management display
     updateInstanceStateDisplay: function(appType, instanceIndex, summaryData, instanceName, customHours) {
+        console.log(`[huntarrUI] updateInstanceStateDisplay called for ${appType}/${instanceName} (index ${instanceIndex}):`, summaryData);
+        
         const resetTimeElement = document.getElementById(`${appType}-state-reset-time-${instanceIndex}`);
         const itemsCountElement = document.getElementById(`${appType}-state-items-count-${instanceIndex}`);
         
+        console.log(`[huntarrUI] DOM elements found:`, {
+            resetTimeElement: !!resetTimeElement,
+            itemsCountElement: !!itemsCountElement,
+            resetTimeId: `${appType}-state-reset-time-${instanceIndex}`,
+            itemsCountId: `${appType}-state-items-count-${instanceIndex}`
+        });
+        
         // Update reset time from server data ONLY - no fallback calculations
         if (resetTimeElement) {
-            if (summaryData && summaryData.next_reset_time) {
+            if (summaryData && summaryData.success && summaryData.next_reset_time) {
                 resetTimeElement.textContent = summaryData.next_reset_time;
+                console.log(`[huntarrUI] Updated reset time for ${appType}/${instanceName}: ${summaryData.next_reset_time}`);
             } else {
                 // Show error state - server should always provide this
-                console.error(`[huntarrUI] No next_reset_time provided by server for ${appType}/${instanceName}`);
+                console.error(`[huntarrUI] No valid next_reset_time in server response for ${appType}/${instanceName}:`, summaryData);
                 resetTimeElement.textContent = 'Error loading time';
             }
+        } else {
+            console.error(`[huntarrUI] Reset time element not found: ${appType}-state-reset-time-${instanceIndex}`);
         }
         
         // Update processed items count
         if (itemsCountElement) {
-            const count = summaryData ? (summaryData.processed_count || 0) : 0;
+            const count = (summaryData && summaryData.success) ? (summaryData.processed_count || 0) : 0;
             itemsCountElement.textContent = count.toString();
+            console.log(`[huntarrUI] Updated items count for ${appType}/${instanceName}: ${count}`);
+        } else {
+            console.error(`[huntarrUI] Items count element not found: ${appType}-state-items-count-${instanceIndex}`);
         }
     },
 

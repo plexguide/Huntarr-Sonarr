@@ -1419,6 +1419,55 @@ const SettingsForms = {
                             </label>
                             <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V2 instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
                         </div>
+                        
+                        <!-- Instance State Management -->
+                        <div class="setting-item" style="border-top: 1px solid rgba(90, 109, 137, 0.2); padding-top: 15px; margin-top: 15px;">
+                            <label for="whisparr-state-management-mode-${index}"><a href="https://plexguide.github.io/Huntarr.io/settings/settings.html#state-reset-hours" class="info-icon" title="Configure state management for this instance" target="_blank" rel="noopener"><i class="fas fa-database"></i></a>State Management:</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <select id="whisparr-state-management-mode-${index}" name="state_management_mode" style="width: 150px; padding: 8px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background-color: #1f2937; color: #d1d5db;">
+                                    <option value="custom" ${(instance.state_management_mode || 'custom') === 'custom' ? 'selected' : ''}>Enabled</option>
+                                    <option value="disabled" ${instance.state_management_mode === 'disabled' ? 'selected' : ''}>Disabled</option>
+                                </select>
+                                <button type="button" id="whisparr-state-reset-btn-${index}" class="btn btn-danger" style="display: ${(instance.state_management_mode || 'custom') !== 'disabled' ? 'inline-flex' : 'none'}; background: linear-gradient(145deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.15)); color: rgba(231, 76, 60, 0.9); border: 1px solid rgba(231, 76, 60, 0.3); padding: 6px 12px; border-radius: 6px; font-size: 12px; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s ease;">
+                                    <i class="fas fa-redo"></i> Reset State
+                                </button>
+                            </div>
+                            <p class="setting-help">Enable state management to track processed media and prevent reprocessing</p>
+                        </div>
+                        
+                        <!-- State Management Hours (visible when enabled) -->
+                        <div class="setting-item" id="whisparr-custom-state-hours-${index}" style="display: ${(instance.state_management_mode || 'custom') === 'custom' ? 'block' : 'none'}; margin-left: 20px; padding: 12px; background: linear-gradient(145deg, rgba(30, 39, 56, 0.3), rgba(22, 28, 40, 0.4)); border: 1px solid rgba(90, 109, 137, 0.15); border-radius: 8px;">
+                            <label for="whisparr-state-management-hours-${index}" style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-clock" style="color: #6366f1;"></i>
+                                Reset Interval:
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                <input type="number" id="whisparr-state-management-hours-${index}" name="state_management_hours" min="1" max="8760" value="${instance.state_management_hours || 168}" style="width: 80px; padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background-color: #374151; color: #d1d5db;">
+                                <span style="color: #9ca3af; font-size: 14px;">
+                                    hours (<span id="whisparr-state-days-display-${index}">${((instance.state_management_hours || 168) / 24).toFixed(1)}</span> days)
+                                </span>
+                            </div>
+                            <p class="setting-help" style="font-size: 13px; color: #9ca3af; margin-top: 8px;">
+                                <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
+                                State will automatically reset every <span id="whisparr-state-hours-text-${index}">${instance.state_management_hours || 168}</span> hours
+                            </p>
+                        </div>
+                        
+                        <!-- State Status Display -->
+                        <div class="setting-item" id="whisparr-state-status-${index}" style="display: ${(instance.state_management_mode || 'custom') !== 'disabled' ? 'block' : 'none'}; margin-left: 20px; padding: 10px; background: linear-gradient(145deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05)); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: #10b981; font-weight: 600;">
+                                        <i class="fas fa-check-circle" style="margin-right: 4px;"></i>
+                                        Active - Tracked Items: <span id="whisparr-state-items-count-${index}">0</span>
+                                    </span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: #9ca3af; font-size: 12px;">Next Reset:</div>
+                                    <div id="whisparr-state-reset-time-${index}" style="color: #d1d5db; font-weight: 500;">Calculating...</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1499,6 +1548,72 @@ const SettingsForms = {
 
         // Add event listeners for the instance management
         this.setupInstanceManagement(container, 'whisparr', settings.instances.length);
+        
+        // Load state information for each instance
+        settings.instances.forEach((instance, index) => {
+            if (typeof huntarrUI !== 'undefined' && huntarrUI.loadInstanceStateInfo) {
+                setTimeout(() => {
+                    huntarrUI.loadInstanceStateInfo('whisparr', index);
+                }, 500); // Small delay to ensure DOM is ready
+            }
+        });
+        
+        // Add event listeners for state management functionality
+        settings.instances.forEach((instance, index) => {
+            // State management mode change listeners
+            const stateManagementModeSelect = container.querySelector(`#whisparr-state-management-mode-${index}`);
+            const customStateHours = container.querySelector(`#whisparr-custom-state-hours-${index}`);
+            const stateStatus = container.querySelector(`#whisparr-state-status-${index}`);
+            const stateResetBtn = container.querySelector(`#whisparr-state-reset-btn-${index}`);
+            
+            if (stateManagementModeSelect) {
+                stateManagementModeSelect.addEventListener('change', function() {
+                    const mode = this.value;
+                    
+                    // Show/hide hours and status sections
+                    if (customStateHours) {
+                        customStateHours.style.display = mode === 'custom' ? 'block' : 'none';
+                    }
+                    
+                    if (stateStatus) {
+                        stateStatus.style.display = mode !== 'disabled' ? 'block' : 'none';
+                    }
+                    
+                    if (stateResetBtn) {
+                        stateResetBtn.style.display = mode !== 'disabled' ? 'inline-flex' : 'none';
+                    }
+                });
+            }
+            
+            // Reset button functionality
+            if (stateResetBtn) {
+                stateResetBtn.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to reset the state for this instance? This will clear all tracked processed media IDs and allow them to be reprocessed.')) {
+                        SettingsForms.resetInstanceState('whisparr', index);
+                    }
+                });
+            }
+            
+            // Custom hours input change listener
+            const stateHoursInput = container.querySelector(`#whisparr-state-management-hours-${index}`);
+            const stateDaysDisplay = container.querySelector(`#whisparr-state-days-display-${index}`);
+            const stateHoursText = container.querySelector(`#whisparr-state-hours-text-${index}`);
+            
+            if (stateHoursInput) {
+                stateHoursInput.addEventListener('input', function() {
+                    const hours = parseInt(this.value) || 168;
+                    const days = (hours / 24).toFixed(1);
+                    
+                    if (stateDaysDisplay) {
+                        stateDaysDisplay.textContent = days;
+                    }
+                    
+                    if (stateHoursText) {
+                        stateHoursText.textContent = hours;
+                    }
+                });
+            }
+        });
         
         // Add event listeners for custom tags visibility
         const whisparrTagProcessedItemsToggle = container.querySelector('#whisparr_tag_processed_items');
@@ -1601,6 +1716,55 @@ const SettingsForms = {
                             </label>
                             <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V3 instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
                         </div>
+                        
+                        <!-- Instance State Management -->
+                        <div class="setting-item" style="border-top: 1px solid rgba(90, 109, 137, 0.2); padding-top: 15px; margin-top: 15px;">
+                            <label for="eros-state-management-mode-${index}"><a href="https://plexguide.github.io/Huntarr.io/settings/settings.html#state-reset-hours" class="info-icon" title="Configure state management for this instance" target="_blank" rel="noopener"><i class="fas fa-database"></i></a>State Management:</label>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <select id="eros-state-management-mode-${index}" name="state_management_mode" style="width: 150px; padding: 8px 12px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.1); background-color: #1f2937; color: #d1d5db;">
+                                    <option value="custom" ${(instance.state_management_mode || 'custom') === 'custom' ? 'selected' : ''}>Enabled</option>
+                                    <option value="disabled" ${instance.state_management_mode === 'disabled' ? 'selected' : ''}>Disabled</option>
+                                </select>
+                                <button type="button" id="eros-state-reset-btn-${index}" class="btn btn-danger" style="display: ${(instance.state_management_mode || 'custom') !== 'disabled' ? 'inline-flex' : 'none'}; background: linear-gradient(145deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.15)); color: rgba(231, 76, 60, 0.9); border: 1px solid rgba(231, 76, 60, 0.3); padding: 6px 12px; border-radius: 6px; font-size: 12px; align-items: center; gap: 4px; cursor: pointer; transition: all 0.2s ease;">
+                                    <i class="fas fa-redo"></i> Reset State
+                                </button>
+                            </div>
+                            <p class="setting-help">Enable state management to track processed media and prevent reprocessing</p>
+                        </div>
+                        
+                        <!-- State Management Hours (visible when enabled) -->
+                        <div class="setting-item" id="eros-custom-state-hours-${index}" style="display: ${(instance.state_management_mode || 'custom') === 'custom' ? 'block' : 'none'}; margin-left: 20px; padding: 12px; background: linear-gradient(145deg, rgba(30, 39, 56, 0.3), rgba(22, 28, 40, 0.4)); border: 1px solid rgba(90, 109, 137, 0.15); border-radius: 8px;">
+                            <label for="eros-state-management-hours-${index}" style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fas fa-clock" style="color: #6366f1;"></i>
+                                Reset Interval:
+                            </label>
+                            <div style="display: flex; align-items: center; gap: 10px; margin-top: 8px;">
+                                <input type="number" id="eros-state-management-hours-${index}" name="state_management_hours" min="1" max="8760" value="${instance.state_management_hours || 168}" style="width: 80px; padding: 8px 12px; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); background-color: #374151; color: #d1d5db;">
+                                <span style="color: #9ca3af; font-size: 14px;">
+                                    hours (<span id="eros-state-days-display-${index}">${((instance.state_management_hours || 168) / 24).toFixed(1)}</span> days)
+                                </span>
+                            </div>
+                            <p class="setting-help" style="font-size: 13px; color: #9ca3af; margin-top: 8px;">
+                                <i class="fas fa-info-circle" style="margin-right: 4px;"></i>
+                                State will automatically reset every <span id="eros-state-hours-text-${index}">${instance.state_management_hours || 168}</span> hours
+                            </p>
+                        </div>
+                        
+                        <!-- State Status Display -->
+                        <div class="setting-item" id="eros-state-status-${index}" style="display: ${(instance.state_management_mode || 'custom') !== 'disabled' ? 'block' : 'none'}; margin-left: 20px; padding: 10px; background: linear-gradient(145deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.05)); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 6px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="color: #10b981; font-weight: 600;">
+                                        <i class="fas fa-check-circle" style="margin-right: 4px;"></i>
+                                        Active - Tracked Items: <span id="eros-state-items-count-${index}">0</span>
+                                    </span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="color: #9ca3af; font-size: 12px;">Next Reset:</div>
+                                    <div id="eros-state-reset-time-${index}" style="color: #d1d5db; font-weight: 500;">Calculating...</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -1689,6 +1853,72 @@ const SettingsForms = {
 
         // Add event listeners for the instance management
         this.setupInstanceManagement(container, 'eros', settings.instances.length);
+        
+        // Load state information for each instance
+        settings.instances.forEach((instance, index) => {
+            if (typeof huntarrUI !== 'undefined' && huntarrUI.loadInstanceStateInfo) {
+                setTimeout(() => {
+                    huntarrUI.loadInstanceStateInfo('eros', index);
+                }, 500); // Small delay to ensure DOM is ready
+            }
+        });
+        
+        // Add event listeners for state management functionality
+        settings.instances.forEach((instance, index) => {
+            // State management mode change listeners
+            const stateManagementModeSelect = container.querySelector(`#eros-state-management-mode-${index}`);
+            const customStateHours = container.querySelector(`#eros-custom-state-hours-${index}`);
+            const stateStatus = container.querySelector(`#eros-state-status-${index}`);
+            const stateResetBtn = container.querySelector(`#eros-state-reset-btn-${index}`);
+            
+            if (stateManagementModeSelect) {
+                stateManagementModeSelect.addEventListener('change', function() {
+                    const mode = this.value;
+                    
+                    // Show/hide hours and status sections
+                    if (customStateHours) {
+                        customStateHours.style.display = mode === 'custom' ? 'block' : 'none';
+                    }
+                    
+                    if (stateStatus) {
+                        stateStatus.style.display = mode !== 'disabled' ? 'block' : 'none';
+                    }
+                    
+                    if (stateResetBtn) {
+                        stateResetBtn.style.display = mode !== 'disabled' ? 'inline-flex' : 'none';
+                    }
+                });
+            }
+            
+            // Reset button functionality
+            if (stateResetBtn) {
+                stateResetBtn.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to reset the state for this instance? This will clear all tracked processed media IDs and allow them to be reprocessed.')) {
+                        SettingsForms.resetInstanceState('eros', index);
+                    }
+                });
+            }
+            
+            // Custom hours input change listener
+            const stateHoursInput = container.querySelector(`#eros-state-management-hours-${index}`);
+            const stateDaysDisplay = container.querySelector(`#eros-state-days-display-${index}`);
+            const stateHoursText = container.querySelector(`#eros-state-hours-text-${index}`);
+            
+            if (stateHoursInput) {
+                stateHoursInput.addEventListener('input', function() {
+                    const hours = parseInt(this.value) || 168;
+                    const days = (hours / 24).toFixed(1);
+                    
+                    if (stateDaysDisplay) {
+                        stateDaysDisplay.textContent = days;
+                    }
+                    
+                    if (stateHoursText) {
+                        stateHoursText.textContent = hours;
+                    }
+                });
+            }
+        });
         
         // Add event listeners for custom tags visibility
         const erosTagProcessedItemsToggle = container.querySelector('#eros_tag_processed_items');

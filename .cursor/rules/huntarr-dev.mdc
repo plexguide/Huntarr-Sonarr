@@ -357,35 +357,62 @@ echo "13. Synology optimization bypass violations: $(grep -r "sqlite3.connect\|P
 - **Solution Pattern**:
   ```javascript
   // In flash prevention script (around line 90-120 in new-main.js)
-  // Check if we should show a specialized sidebar instead of main sidebar
-  const currentSection = localStorage.getItem('huntarrCurrentSection') || 'home';
-  const requestarrSections = ['requestarr-home', 'requestarr-history'];
-  const settingsSections = ['settings', 'scheduling'];
+  // Check which sidebar should be shown based on current section
+  const huntarrSections = ['sonarr', 'radarr', 'lidarr', 'readarr', 'whisparr', 'eros'];
+  const requestarrSections = ['requestarr', 'requestarr-history'];
+  const settingsSections = ['settings', 'scheduling', 'notifications', 'user'];
   
-  if (requestarrSections.includes(currentSection)) {
-      // Show Requestarr sidebar, hide main sidebar
-      document.getElementById('sidebar').style.display = 'none';
-      document.getElementById('requestarrSidebar').style.display = 'block';
-  } else if (settingsSections.includes(currentSection)) {
-      // Show Settings sidebar, hide main sidebar  
-      document.getElementById('sidebar').style.display = 'none';
-      document.getElementById('settingsSidebar').style.display = 'block';
+  if (huntarrSections.includes(this.currentSection)) {
+      this.showHuntarrSidebar();
+  } else if (requestarrSections.includes(this.currentSection)) {
+      this.showRequestarrSidebar();
+  } else if (settingsSections.includes(this.currentSection)) {
+      this.showSettingsSidebar();
   } else {
-      // Show main sidebar, hide specialized sidebars
-      document.getElementById('sidebar').style.display = 'block';
-      document.getElementById('requestarrSidebar').style.display = 'none';
-      document.getElementById('settingsSidebar').style.display = 'none';
+      // Show main sidebar by default and clear settings sidebar preference
+      localStorage.removeItem('huntarr-settings-sidebar');
+      this.showMainSidebar();
   }
   ```
 - **Files Affected**: `/frontend/static/js/new-main.js` (flash prevention script)
 - **Implementation Requirements**:
-  1. Always check localStorage section before showing any sidebar
+  1. Always check current section before showing any sidebar
   2. Hide all other sidebars when showing one specific sidebar
-  3. Use consistent section naming: `requestarr-home`, `requestarr-history`, `settings`, `scheduling`
+  3. Use consistent section naming: 
+     - Huntarr sections: `sonarr`, `radarr`, `lidarr`, `readarr`, `whisparr`, `eros`
+     - Requestarr sections: `requestarr`, `requestarr-history`
+     - Settings sections: `settings`, `scheduling`, `notifications`, `user`
   4. Test on both desktop and mobile to ensure no double sidebars
   5. Ensure return buttons properly switch back to main sidebar
+  6. Implement proper sidebar switching functions: `showMainSidebar()`, `showHuntarrSidebar()`, `showRequestarrSidebar()`, `showSettingsSidebar()`
+  7. Update active navigation states for each sidebar type
 - **Mobile Compatibility**: Flash prevention must work on mobile where sidebar space is limited
-- **Testing**: Navigate between sections, refresh page, check that only one sidebar shows at a time
+- **Mobile CSS Requirements**: All sidebars must be included in mobile.css with proper display rules:
+  ```css
+  /* All specialized sidebars */
+  #requestarr-sidebar,
+  #settings-sidebar,
+  #huntarr-sidebar {
+      width: 60px !important;
+      padding: 20px 0 !important;
+  }
+  
+  /* Enforce JavaScript display: none */
+  #sidebar[style*="display: none"],
+  #requestarr-sidebar[style*="display: none"],
+  #settings-sidebar[style*="display: none"],
+  #huntarr-sidebar[style*="display: none"] {
+      display: none !important;
+  }
+  
+  /* Default hide all specialized sidebars */
+  #requestarr-sidebar:not([style*="display: block"]),
+  #settings-sidebar:not([style*="display: block"]),
+  #huntarr-sidebar:not([style*="display: block"]) {
+      display: none !important;
+  }
+  ```
+- **Testing**: Navigate between sections, refresh page, check that only one sidebar shows at a time on both desktop and mobile
 
 ## 🎯 DEBUGGING APPROACH
 

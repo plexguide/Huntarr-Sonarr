@@ -75,8 +75,16 @@ let huntarrUI = {
             initialSidebarStyle.remove();
         }
         
-        // Check if Settings sidebar should be shown based on current section (like Requestarr does)
-        if (this.currentSection === 'settings' || this.currentSection === 'scheduling' || this.currentSection === 'notifications' || this.currentSection === 'user') {
+        // Check which sidebar should be shown based on current section
+        const huntarrSections = ['sonarr', 'radarr', 'lidarr', 'readarr', 'whisparr', 'eros'];
+        const requestarrSections = ['requestarr', 'requestarr-history'];
+        const settingsSections = ['settings', 'scheduling', 'notifications', 'user'];
+        
+        if (huntarrSections.includes(this.currentSection)) {
+            this.showHuntarrSidebar();
+        } else if (requestarrSections.includes(this.currentSection)) {
+            this.showRequestarrSidebar();
+        } else if (settingsSections.includes(this.currentSection)) {
             this.showSettingsSidebar();
         } else {
             // Show main sidebar by default and clear settings sidebar preference
@@ -131,6 +139,7 @@ let huntarrUI = {
         // Setup navigation for sidebars
         this.setupRequestarrNavigation();
         this.setupSettingsNavigation();
+        this.setupHuntarrNavigation();
         
         // Auto-save enabled - no unsaved changes handler needed
         
@@ -569,6 +578,12 @@ let huntarrUI = {
             
             // Show history view
             this.showRequestarrView('history');
+        } else if (section === 'huntarr' && document.getElementById('appsSection')) {
+            // Legacy apps section - redirect to Huntarr sidebar
+            this.showHuntarrSidebar();
+            // Default to Sonarr
+            window.location.hash = '#sonarr';
+            return;
         } else if (section === 'apps' && document.getElementById('appsSection')) {
             document.getElementById('appsSection').classList.add('active');
             document.getElementById('appsSection').style.display = 'block';
@@ -582,6 +597,84 @@ let huntarrUI = {
             
             // Load app connections when switching to Apps
             this.checkAppConnections();
+        } else if (section === 'sonarr' && document.getElementById('sonarrSection')) {
+            document.getElementById('sonarrSection').classList.add('active');
+            document.getElementById('sonarrSection').style.display = 'block';
+            newTitle = 'Sonarr';
+            this.currentSection = 'sonarr';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Sonarr app settings
+            this.loadIndividualApp('sonarr');
+        } else if (section === 'radarr' && document.getElementById('radarrSection')) {
+            document.getElementById('radarrSection').classList.add('active');
+            document.getElementById('radarrSection').style.display = 'block';
+            newTitle = 'Radarr';
+            this.currentSection = 'radarr';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Radarr app settings
+            this.loadIndividualApp('radarr');
+        } else if (section === 'lidarr' && document.getElementById('lidarrSection')) {
+            document.getElementById('lidarrSection').classList.add('active');
+            document.getElementById('lidarrSection').style.display = 'block';
+            newTitle = 'Lidarr';
+            this.currentSection = 'lidarr';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Lidarr app settings
+            this.loadIndividualApp('lidarr');
+        } else if (section === 'readarr' && document.getElementById('readarrSection')) {
+            document.getElementById('readarrSection').classList.add('active');
+            document.getElementById('readarrSection').style.display = 'block';
+            newTitle = 'Readarr';
+            this.currentSection = 'readarr';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Readarr app settings
+            this.loadIndividualApp('readarr');
+        } else if (section === 'whisparr' && document.getElementById('whisparrSection')) {
+            document.getElementById('whisparrSection').classList.add('active');
+            document.getElementById('whisparrSection').style.display = 'block';
+            newTitle = 'Whisparr v2';
+            this.currentSection = 'whisparr';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Whisparr app settings
+            this.loadIndividualApp('whisparr');
+        } else if (section === 'eros' && document.getElementById('erosSection')) {
+            document.getElementById('erosSection').classList.add('active');
+            document.getElementById('erosSection').style.display = 'block';
+            newTitle = 'Whisparr v3 (Eros)';
+            this.currentSection = 'eros';
+            
+            // Show Huntarr sidebar and stay there
+            this.showHuntarrSidebar();
+            
+            // Load Eros app settings
+            this.loadIndividualApp('eros');
+        } else if (section === 'swaparr' && document.getElementById('swaparrSection')) {
+            document.getElementById('swaparrSection').classList.add('active');
+            document.getElementById('swaparrSection').style.display = 'block';
+            newTitle = 'Swaparr';
+            this.currentSection = 'swaparr';
+            
+            // Show main sidebar for main sections and clear settings sidebar preference
+            localStorage.removeItem('huntarr-settings-sidebar');
+            this.showMainSidebar();
+            
+            // Load Swaparr app settings
+            this.loadIndividualApp('swaparr');
         } else if (section === 'settings' && document.getElementById('settingsSection')) {
             document.getElementById('settingsSection').classList.add('active');
             document.getElementById('settingsSection').style.display = 'block';
@@ -3929,6 +4022,181 @@ let huntarrUI = {
                 window.location.hash = '#user';
             });
         }
+    },
+
+    setupHuntarrNavigation: function() {
+        // Return button - goes back to main Huntarr
+        const returnNav = document.getElementById('huntarrReturnNav');
+        if (returnNav) {
+            returnNav.addEventListener('click', (e) => {
+                e.preventDefault();
+                window.location.hash = '#home';
+            });
+        }
+        
+        // Individual app buttons
+        const appNavButtons = [
+            { id: 'huntarrSonarrNav', hash: '#sonarr' },
+            { id: 'huntarrRadarrNav', hash: '#radarr' },
+            { id: 'huntarrLidarrNav', hash: '#lidarr' },
+            { id: 'huntarrReadarrNav', hash: '#readarr' },
+            { id: 'huntarrWhisparrNav', hash: '#whisparr' },
+            { id: 'huntarrErosNav', hash: '#eros' }
+        ];
+        
+        appNavButtons.forEach(button => {
+            const navElement = document.getElementById(button.id);
+            if (navElement) {
+                navElement.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.hash = button.hash;
+                });
+            }
+        });
+    },
+
+    showHuntarrSidebar: function() {
+        // Hide all other sidebars
+        const mainSidebar = document.getElementById('sidebar');
+        const requestarrSidebar = document.getElementById('requestarr-sidebar');
+        const settingsSidebar = document.getElementById('settings-sidebar');
+        const huntarrSidebar = document.getElementById('huntarr-sidebar');
+        
+        if (mainSidebar) mainSidebar.style.display = 'none';
+        if (requestarrSidebar) requestarrSidebar.style.display = 'none';
+        if (settingsSidebar) settingsSidebar.style.display = 'none';
+        if (huntarrSidebar) huntarrSidebar.style.display = 'block';
+        
+        // Update navigation state
+        this.updateHuntarrSidebarActive();
+    },
+
+    updateHuntarrSidebarActive: function() {
+        // Remove active from all Huntarr nav items
+        const huntarrNavItems = document.querySelectorAll('#huntarr-sidebar .nav-item');
+        huntarrNavItems.forEach(item => item.classList.remove('active'));
+        
+        // Set appropriate active state based on current section
+        const appNavMap = {
+            'sonarr': 'huntarrSonarrNav',
+            'radarr': 'huntarrRadarrNav',
+            'lidarr': 'huntarrLidarrNav',
+            'readarr': 'huntarrReadarrNav',
+            'whisparr': 'huntarrWhisparrNav',
+            'eros': 'huntarrErosNav'
+        };
+        
+        const activeNavId = appNavMap[this.currentSection];
+        if (activeNavId) {
+            const activeNav = document.getElementById(activeNavId);
+            if (activeNav) activeNav.classList.add('active');
+        }
+    },
+
+    showMainSidebar: function() {
+        // Hide all other sidebars
+        const mainSidebar = document.getElementById('sidebar');
+        const requestarrSidebar = document.getElementById('requestarr-sidebar');
+        const settingsSidebar = document.getElementById('settings-sidebar');
+        const huntarrSidebar = document.getElementById('huntarr-sidebar');
+        
+        if (mainSidebar) mainSidebar.style.display = 'block';
+        if (requestarrSidebar) requestarrSidebar.style.display = 'none';
+        if (settingsSidebar) settingsSidebar.style.display = 'none';
+        if (huntarrSidebar) huntarrSidebar.style.display = 'none';
+    },
+
+    showRequestarrSidebar: function() {
+        // Hide all other sidebars
+        const mainSidebar = document.getElementById('sidebar');
+        const requestarrSidebar = document.getElementById('requestarr-sidebar');
+        const settingsSidebar = document.getElementById('settings-sidebar');
+        const huntarrSidebar = document.getElementById('huntarr-sidebar');
+        
+        if (mainSidebar) mainSidebar.style.display = 'none';
+        if (requestarrSidebar) requestarrSidebar.style.display = 'block';
+        if (settingsSidebar) settingsSidebar.style.display = 'none';
+        if (huntarrSidebar) huntarrSidebar.style.display = 'none';
+        
+        // Update navigation state
+        this.updateRequestarrSidebarActive();
+    },
+
+    showSettingsSidebar: function() {
+        // Hide all other sidebars
+        const mainSidebar = document.getElementById('sidebar');
+        const requestarrSidebar = document.getElementById('requestarr-sidebar');
+        const settingsSidebar = document.getElementById('settings-sidebar');
+        const huntarrSidebar = document.getElementById('huntarr-sidebar');
+        
+        if (mainSidebar) mainSidebar.style.display = 'none';
+        if (requestarrSidebar) requestarrSidebar.style.display = 'none';
+        if (settingsSidebar) settingsSidebar.style.display = 'block';
+        if (huntarrSidebar) huntarrSidebar.style.display = 'none';
+        
+        // Update navigation state
+        this.updateSettingsSidebarActive();
+    },
+
+    loadIndividualApp: function(app) {
+        console.log(`[huntarrUI] Loading individual app: ${app}`);
+        
+        // Get the container for this app
+        const appContainer = document.getElementById(app + 'Container');
+        if (!appContainer) {
+            console.error(`[huntarrUI] Container not found for app: ${app}`);
+            return;
+        }
+        
+        // Show loading state
+        appContainer.innerHTML = '<div class="loading-panel"><i class="fas fa-spinner fa-spin"></i> Loading ' + app + ' settings...</div>';
+        
+        // Fetch settings for this app
+        fetch(`./api/settings/${app}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(appSettings => {
+                console.log(`[huntarrUI] Received settings for ${app}:`, appSettings);
+                
+                // Clear loading message
+                appContainer.innerHTML = '';
+                
+                // Generate the form using SettingsForms module
+                if (typeof SettingsForms !== 'undefined') {
+                    const formFunction = SettingsForms[`generate${app.charAt(0).toUpperCase()}${app.slice(1)}Form`];
+                    if (typeof formFunction === 'function') {
+                        // Create a form container with the app-type attribute
+                        const formElement = document.createElement('form');
+                        formElement.classList.add('settings-form');
+                        formElement.setAttribute('data-app-type', app);
+                        appContainer.appendChild(formElement);
+                        
+                        // Use .call() to set the 'this' context correctly
+                        formFunction.call(SettingsForms, formElement, appSettings);
+                        
+                        // Update duration displays for this app
+                        if (typeof SettingsForms.updateDurationDisplay === 'function') {
+                            SettingsForms.updateDurationDisplay();
+                        }
+                        
+                        console.log(`[huntarrUI] Successfully loaded ${app} form`);
+                    } else {
+                        console.error(`[huntarrUI] Form function not found for ${app}`);
+                        appContainer.innerHTML = `<p>Error: Form function not available for ${app}</p>`;
+                    }
+                } else {
+                    console.error('[huntarrUI] SettingsForms not available');
+                    appContainer.innerHTML = '<p>Error: Settings forms not loaded</p>';
+                }
+            })
+            .catch(error => {
+                console.error(`[huntarrUI] Error loading ${app} settings:`, error);
+                appContainer.innerHTML = `<p>Error loading ${app} settings: ${error.message}</p>`;
+            });
     },
 
     initializeSettings: function() {

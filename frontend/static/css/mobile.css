@@ -33,27 +33,35 @@
         margin-right: 0 !important;
     }
     
-    /* Requestarr sidebar - same JavaScript behavior as desktop */
-    #requestarr-sidebar {
+    /* All specialized sidebars - same JavaScript behavior as desktop */
+    #requestarr-sidebar,
+    #settings-sidebar,
+    #huntarr-sidebar {
         width: 60px !important;
         padding: 20px 0 !important;
     }
     
-    /* When JavaScript sets display: none, enforce it */
+    /* When JavaScript sets display: none, enforce it for all sidebars */
     #sidebar[style*="display: none"],
-    #requestarr-sidebar[style*="display: none"] {
+    #requestarr-sidebar[style*="display: none"],
+    #settings-sidebar[style*="display: none"],
+    #huntarr-sidebar[style*="display: none"] {
         display: none !important;
     }
     
-    /* When JavaScript sets display: block, show as flex */
+    /* When JavaScript sets display: block, show as flex for all sidebars */
     #sidebar[style*="display: block"],
-    #requestarr-sidebar[style*="display: block"] {
+    #requestarr-sidebar[style*="display: block"],
+    #settings-sidebar[style*="display: block"],
+    #huntarr-sidebar[style*="display: block"] {
         display: flex !important;
         flex-direction: column !important;
     }
     
-    /* Ensure only one sidebar shows at a time - default state */
-    #requestarr-sidebar:not([style*="display: block"]) {
+    /* Ensure only one sidebar shows at a time - default state for all specialized sidebars */
+    #requestarr-sidebar:not([style*="display: block"]),
+    #settings-sidebar:not([style*="display: block"]),
+    #huntarr-sidebar:not([style*="display: block"]) {
         display: none !important;
     }
     
@@ -80,7 +88,9 @@
 /* Very small screens */
 @media (max-width: 480px) {
     .sidebar,
-    #requestarr-sidebar {
+    #requestarr-sidebar,
+    #settings-sidebar,
+    #huntarr-sidebar {
         width: 50px !important;
     }
     

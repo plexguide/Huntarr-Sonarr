@@ -653,14 +653,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${this.isSwaparrGloballyEnabled() ? `
                         <div class="setting-item">
                             <label for="radarr-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="radarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="radarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Radarr instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Radarr instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -980,14 +982,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${this.isSwaparrGloballyEnabled() ? `
                         <div class="setting-item">
                             <label for="lidarr-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="lidarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="lidarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Lidarr instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Lidarr instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1224,14 +1228,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${this.isSwaparrGloballyEnabled() ? `
                         <div class="setting-item">
                             <label for="readarr-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="readarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="readarr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Readarr instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Readarr instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1461,14 +1467,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${this.isSwaparrGloballyEnabled() ? `
                         <div class="setting-item">
                             <label for="whisparr-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="whisparr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="whisparr-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V2 instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V2 instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -1759,14 +1767,16 @@ const SettingsForms = {
                             </div>
                         </div>
                         
+                        ${this.isSwaparrGloballyEnabled() ? `
                         <div class="setting-item">
                             <label for="eros-swaparr-${index}"><a href="https://plexguide.github.io/Huntarr.io/apps/swaparr.html" class="info-icon" title="Enable Swaparr stalled download monitoring for this instance" target="_blank" rel="noopener"><i class="fas fa-info-circle"></i></a>Swaparr:</label>
-                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative; ${this.isSwaparrGloballyEnabled() ? '' : 'opacity: 0.5; pointer-events: none;'}">
-                                <input type="checkbox" id="eros-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''} ${this.isSwaparrGloballyEnabled() ? '' : 'disabled'}>
+                            <label class="toggle-switch" style="width:40px; height:20px; display:inline-block; position:relative;">
+                                <input type="checkbox" id="eros-swaparr-${index}" name="swaparr_enabled" ${instance.swaparr_enabled === true ? 'checked' : ''}>
                                 <span class="toggle-slider" style="position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:#3d4353; border-radius:20px; transition:0.4s;"></span>
                             </label>
-                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V3 instance${this.isSwaparrGloballyEnabled() ? '' : ' (Swaparr is globally disabled)'}</p>
+                            <p class="setting-help">Enable Swaparr to monitor and remove stalled downloads for this Whisparr V3 instance</p>
                         </div>
+                        ` : ''}
                     </div>
                 </div>
             `;

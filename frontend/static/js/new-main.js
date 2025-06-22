@@ -1652,14 +1652,37 @@ let huntarrUI = {
                 const enabledInput = form.querySelector(`#${app}-enabled-${instanceId}`);
 
                 if (urlInput && keyInput) { // Need URL and Key at least
-                    settings.instances.push({
+                    const instance = {
                         // Use nameInput value if available, otherwise generate a default
                         name: nameInput && nameInput.value.trim() !== '' ? nameInput.value.trim() : `Instance ${index + 1}`,
                         api_url: this.cleanUrlString(urlInput.value),
                         api_key: keyInput.value.trim(),
                         // Default to true if toggle doesn't exist or is checked
                         enabled: enabledInput ? enabledInput.checked : true
+                    };
+                    
+                    // Collect per-instance settings for this instance
+                    const perInstanceFields = [
+                        'hunt_missing_items', 'hunt_upgrade_items', 'hunt_missing_books', 'hunt_upgrade_books',
+                        'hunt_missing_movies', 'hunt_upgrade_movies', 'hunt_missing_mode', 'upgrade_mode',
+                        'state_management_mode', 'state_management_hours', 'swaparr_enabled'
+                    ];
+                    
+                    perInstanceFields.forEach(fieldName => {
+                        const fieldInput = form.querySelector(`#${app}-${fieldName.replace(/_/g, '-')}-${instanceId}`);
+                        if (fieldInput) {
+                            if (fieldInput.type === 'checkbox') {
+                                instance[fieldName] = fieldInput.checked;
+                            } else if (fieldInput.type === 'number') {
+                                instance[fieldName] = fieldInput.value === '' ? null : parseInt(fieldInput.value, 10);
+                            } else {
+                                instance[fieldName] = fieldInput.value.trim();
+                            }
+                            console.log(`[huntarrUI] Collected per-instance setting for ${app} instance ${instanceId}: ${fieldName} = ${instance[fieldName]}`);
+                        }
                     });
+                    
+                    settings.instances.push(instance);
                 }
             });
         } else {
@@ -1696,10 +1719,22 @@ let huntarrUI = {
             instanceItems.forEach((item) => {
                 const instanceId = item.dataset.instanceId;
                 if(instanceId) {
+                    // Basic instance fields
                     handledInstanceFieldIds.add(`${app}-name-${instanceId}`);
                     handledInstanceFieldIds.add(`${app}-url-${instanceId}`);
                     handledInstanceFieldIds.add(`${app}-key-${instanceId}`);
                     handledInstanceFieldIds.add(`${app}-enabled-${instanceId}`);
+                    
+                    // Per-instance settings fields
+                    const perInstanceFields = [
+                        'hunt_missing_items', 'hunt_upgrade_items', 'hunt_missing_books', 'hunt_upgrade_books',
+                        'hunt_missing_movies', 'hunt_upgrade_movies', 'hunt_missing_mode', 'upgrade_mode',
+                        'state_management_mode', 'state_management_hours', 'swaparr_enabled'
+                    ];
+                    
+                    perInstanceFields.forEach(fieldName => {
+                        handledInstanceFieldIds.add(`${app}-${fieldName.replace(/_/g, '-')}-${instanceId}`);
+                    });
                 }
             });
         } else {

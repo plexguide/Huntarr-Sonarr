@@ -1353,6 +1353,12 @@ let huntarrUI = {
         // Add event listeners to both settings container and individual app sections
         const settingsContainer = document.getElementById('settingsSection');
         const swaparrSection = document.getElementById('swaparrSection');
+        const sonarrSection = document.getElementById('sonarrSection');
+        const radarrSection = document.getElementById('radarrSection');
+        const lidarrSection = document.getElementById('lidarrSection');
+        const readarrSection = document.getElementById('readarrSection');
+        const whisparrSection = document.getElementById('whisparrSection');
+        const erosSection = document.getElementById('erosSection');
         
         // Function to add auto-save listeners to a container
         const addAutoSaveListeners = (container, containerName) => {
@@ -1398,6 +1404,12 @@ let huntarrUI = {
         // Add listeners to all relevant containers
         addAutoSaveListeners(settingsContainer, 'settingsSection');
         addAutoSaveListeners(swaparrSection, 'swaparrSection');
+        addAutoSaveListeners(sonarrSection, 'sonarrSection');
+        addAutoSaveListeners(radarrSection, 'radarrSection');
+        addAutoSaveListeners(lidarrSection, 'lidarrSection');
+        addAutoSaveListeners(readarrSection, 'readarrSection');
+        addAutoSaveListeners(whisparrSection, 'whisparrSection');
+        addAutoSaveListeners(erosSection, 'erosSection');
         
         console.log('[huntarrUI] Settings auto-save listeners added to all containers');
     },

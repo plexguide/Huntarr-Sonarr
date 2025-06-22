@@ -1082,9 +1082,21 @@ select.form-control {
     height: calc(100vh - 150px);
 }
 
-/* Swaparr section should scroll naturally like other main sections */
+/* App sections should scroll naturally like other main sections */
 #swaparrSection .settings-form,
-#swaparrSection {
+#swaparrSection,
+#sonarrSection .settings-form,
+#sonarrSection,
+#radarrSection .settings-form,
+#radarrSection,
+#lidarrSection .settings-form,
+#lidarrSection,
+#readarrSection .settings-form,
+#readarrSection,
+#whisparrSection .settings-form,
+#whisparrSection,
+#erosSection .settings-form,
+#erosSection {
     height: auto;
     overflow-y: visible;
 }

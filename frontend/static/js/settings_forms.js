@@ -2734,8 +2734,8 @@ const SettingsForms = {
                 settings.malicious_file_detection = getInputValue('#swaparr_malicious_detection', false);
                 
                 // Get tags from tag containers
-                settings.malicious_extensions = this.getTagsFromContainer('swaparr_malicious_extensions_tags');
-                settings.suspicious_patterns = this.getTagsFromContainer('swaparr_suspicious_patterns_tags');
+                settings.malicious_extensions = SettingsForms.getTagsFromContainer('swaparr_malicious_extensions_tags');
+                settings.suspicious_patterns = SettingsForms.getTagsFromContainer('swaparr_suspicious_patterns_tags');
                 
                 // Age-based removal settings
                 settings.age_based_removal = getInputValue('#swaparr_age_based_removal', false);
@@ -2743,7 +2743,7 @@ const SettingsForms = {
                 
                 // Quality-based removal settings
                 settings.quality_based_removal = getInputValue('#swaparr_quality_based_removal', false);
-                settings.blocked_quality_patterns = this.getTagsFromContainer('swaparr_quality_patterns_tags');
+                settings.blocked_quality_patterns = SettingsForms.getTagsFromContainer('swaparr_quality_patterns_tags');
             }
         }
         

@@ -1379,21 +1379,24 @@ let huntarrUI = {
                 if (event.target.matches('input, select, textarea')) {
                     console.log(`[huntarrUI] Change event detected in ${containerName}:`, event.target.id);
         
-                    // Special handling for settings that can take effect immediately (only for general settings)
-                    if (containerName === 'settingsSection') {
-                        if (event.target.id === 'low_usage_mode') {
-                            console.log('[huntarrUI] Low Usage Mode toggled, applying immediately');
-                            this.applyLowUsageMode(event.target.checked);
-                        } else if (event.target.id === 'timezone') {
-                            console.log('[huntarrUI] Timezone changed, applying immediately');
-                            this.applyTimezoneChange(event.target.value);
-                        } else if (event.target.id === 'auth_mode') {
-                            console.log('[huntarrUI] Authentication mode changed, applying immediately');
-                            this.applyAuthModeChange(event.target.value);
-                        } else if (event.target.id === 'check_for_updates') {
-                            console.log('[huntarrUI] Update checking toggled, applying immediately');
-                            this.applyUpdateCheckingChange(event.target.checked);
+                    // Special handling for settings that can take effect immediately
+                    if (event.target.id === 'low_usage_mode') {
+                        console.log('[huntarrUI] Low Usage Mode toggled, applying immediately');
+                        // Apply low usage mode immediately by toggling CSS class
+                        if (event.target.checked) {
+                            document.body.classList.add('low-usage-mode');
+                        } else {
+                            document.body.classList.remove('low-usage-mode');
                         }
+                    } else if (event.target.id === 'timezone') {
+                        console.log('[huntarrUI] Timezone changed, applying immediately');
+                        // Timezone changes take effect on next page load or refresh
+                    } else if (event.target.id === 'auth_mode') {
+                        console.log('[huntarrUI] Authentication mode changed, applying immediately');
+                        // Auth mode changes take effect immediately via backend
+                    } else if (event.target.id === 'check_for_updates') {
+                        console.log('[huntarrUI] Update checking toggled, applying immediately');
+                        this.applyUpdateCheckingChange(event.target.checked);
                     }
                     
                     this.triggerSettingsAutoSave();
@@ -1423,22 +1426,14 @@ let huntarrUI = {
         
         // Determine what type of settings we're saving
         const app = this.currentSettingsTab;
-        const isGeneralSettings = this.currentSection === 'settings' && !app;
         
-        if (!app && !isGeneralSettings) {
+        if (!app) {
             console.log('[huntarrUI] No current settings tab for auto-save');
             return;
         }
         
-        if (isGeneralSettings) {
-            console.log('[huntarrUI] Triggering immediate general settings auto-save');
-            this.autoSaveGeneralSettings(true).catch(error => {
-                console.error('[huntarrUI] General settings auto-save failed:', error);
-            });
-        } else {
-            console.log(`[huntarrUI] Triggering immediate settings auto-save for: ${app}`);
-            this.autoSaveSettings(app);
-        }
+        console.log(`[huntarrUI] Triggering immediate settings auto-save for: ${app}`);
+        this.autoSaveSettings(app);
     },
 
     // Auto-save settings function
@@ -1497,14 +1492,21 @@ let huntarrUI = {
                         console.log('[huntarrUI] Updated Swaparr settings cache:', window.swaparrSettings);
                     }
                 }
+                
+                // For general settings, dispatch event to notify other modules (like home page display)
+                if (app === 'general') {
+                    console.log('[huntarrUI] Dispatching settings-saved event for general settings');
+                    window.dispatchEvent(new CustomEvent('settings-saved', {
+                        detail: { app: app, settings: savedConfig }
+                    }));
+                }
             }
             
             window._settingsCurrentlySaving = false;
         })
         .catch(error => {
             console.error(`[huntarrUI] Auto-save error for ${app}:`, error);
-            // Show error notification for auto-save failures
-            this.showNotification(`Auto-save failed: ${error.message}`, 'error');
+            // Silent auto-save - no notifications for failures
             window._settingsCurrentlySaving = false;
         });
     },
@@ -3520,7 +3522,7 @@ let huntarrUI = {
     // Apply update checking change immediately
     applyUpdateCheckingChange: function(enabled) {
         console.log(`[huntarrUI] Update checking ${enabled ? 'enabled' : 'disabled'}`);
-        this.showNotification(`Update checking ${enabled ? 'enabled' : 'disabled'}`, 'info');
+        // Silent update - no notification needed for auto-save
     },
 
     // Refresh time displays after timezone change
@@ -4328,6 +4330,10 @@ let huntarrUI = {
             return; // Already initialized
         }
 
+        // Set current settings tab for auto-save functionality
+        this.currentSettingsTab = 'general';
+        console.log('[huntarrUI] Set currentSettingsTab to: general for auto-save');
+
         // Load settings from API and generate the form
         fetch('./api/settings')
             .then(response => response.json())
@@ -4337,6 +4343,8 @@ let huntarrUI = {
                 
                 // Generate the general settings form - pass only the general settings
                 if (typeof SettingsForms !== 'undefined' && SettingsForms.generateGeneralForm) {
+                    // Ensure the container has the correct ID for auto-save
+                    generalSettings.id = 'generalSettings';
                     SettingsForms.generateGeneralForm(generalSettings, settings.general || {});
                 } else {
                     console.error('[huntarrUI] SettingsForms not available');

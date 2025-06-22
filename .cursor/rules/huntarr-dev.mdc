@@ -197,6 +197,7 @@ conn = sqlite3.connect('/config/huntarr.db')
 - ❌ Multiple pagination systems conflicting (template vs JavaScript module)
 - ❌ Template HTML containing pagination logic that overrides API-based pagination
 - ❌ DOM element counting for pagination instead of using API total counts
+- ❌ Using fixed height containers for standalone app sections (should scroll naturally like Home page)
 
 ## 🚨 PROACTIVE VIOLATION SCANNING
 
@@ -354,6 +355,24 @@ echo "13. Synology optimization bypass violations: $(grep -r "sqlite3.connect\|P
 - **Pattern**: Flash prevention checks localStorage but doesn't account for specialized sidebars (Requestarr, Settings)
 - **Symptom**: Both main sidebar and specialized sidebar visible at same time, especially on mobile
 - **Critical Fix**: Update flash prevention to hide main sidebar when specialized sidebar should be active
+
+### Standalone App Section Scrolling Pattern (Critical)
+- **Problem**: Standalone app sections (like Swaparr) trapped in fixed height containers with nested scrolling
+- **Root Cause**: Apps moved from nested Apps section to main sidebar still inherit `.settings-form` height constraints
+- **Pattern**: `.settings-form` has `height: calc(100vh - 150px)` and `overflow-y: auto` creating nested scroll
+- **Symptom**: App content doesn't scroll naturally with page, creates confusing nested scroll areas
+- **Critical Fix**: Override height constraints for standalone sections
+- **Solution Pattern**:
+  ```css
+  /* Standalone app sections should scroll naturally like other main sections */
+  #swaparrSection .settings-form,
+  #swaparrSection {
+      height: auto;
+      overflow-y: visible;
+  }
+  ```
+- **Files Affected**: `/frontend/static/css/new-style.css`
+- **Testing**: Navigate to standalone app, scroll page naturally without nested scroll areas
 - **Solution Pattern**:
   ```javascript
   // In flash prevention script (around line 90-120 in new-main.js)

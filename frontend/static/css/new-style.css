@@ -1082,6 +1082,13 @@ select.form-control {
     height: calc(100vh - 150px);
 }
 
+/* Swaparr section should scroll naturally like other main sections */
+#swaparrSection .settings-form,
+#swaparrSection {
+    height: auto;
+    overflow-y: visible;
+}
+
 .app-settings-panel {
     display: none;
 }

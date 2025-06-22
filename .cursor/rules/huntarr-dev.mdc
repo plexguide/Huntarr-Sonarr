@@ -373,6 +373,30 @@ echo "13. Synology optimization bypass violations: $(grep -r "sqlite3.connect\|P
   ```
 - **Files Affected**: `/frontend/static/css/new-style.css`
 - **Testing**: Navigate to standalone app, scroll page naturally without nested scroll areas
+
+### Auto-Save Implementation Pattern (Critical)
+- **Problem**: Standalone app sections (like Swaparr) need instant auto-save functionality when users make changes
+- **Root Cause**: Auto-save system only listened to settings container, not individual app sections
+- **Requirements**: 1) Set `currentSettingsTab` in `loadIndividualApp()`, 2) Add auto-save listeners to app sections, 3) Create form with correct ID, 4) Handle app-specific form data collection
+- **Critical Implementation**:
+  ```javascript
+  // 1. Set currentSettingsTab for auto-save
+  this.currentSettingsTab = app;
+  
+  // 2. Add auto-save listeners to app sections
+  const swaparrSection = document.getElementById('swaparrSection');
+  addAutoSaveListeners(swaparrSection, 'swaparrSection');
+  
+  // 3. Create form with correct ID
+  formElement.id = `${app}Settings`;
+  
+  // 4. Handle special app data collection in getFormSettings()
+  if (app === 'swaparr') {
+      // Process form inputs, handle tag-based settings, convert units
+  }
+  ```
+- **Files Affected**: `/frontend/static/js/new-main.js` (setupSettingsAutoSave, loadIndividualApp, getFormSettings)
+- **Testing**: Navigate to app, make changes, verify instant auto-save without manual save button
 - **Solution Pattern**:
   ```javascript
   // In flash prevention script (around line 90-120 in new-main.js)

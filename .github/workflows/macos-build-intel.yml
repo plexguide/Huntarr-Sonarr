@@ -197,11 +197,22 @@ jobs:
         # Make sure the main executable is executable
         chmod +x dist/Huntarr.app/Contents/MacOS/Huntarr
         
+        # Remove quarantine attributes that cause "damaged" warnings
+        echo "Removing quarantine attributes..."
+        xattr -cr dist/Huntarr.app || echo "xattr removal failed (expected on CI)"
+        
+        # Sign the app with ad-hoc signature to prevent damage warnings
+        echo "Adding ad-hoc code signature..."
+        codesign --force --deep --sign - dist/Huntarr.app || echo "Code signing failed (expected on CI)"
+        
         # Verify the build
         echo "Checking built app:"
         ls -la dist/
         ls -la dist/Huntarr.app/Contents/MacOS/
         file dist/Huntarr.app/Contents/MacOS/Huntarr
+        
+        # Check code signature
+        codesign -dv dist/Huntarr.app || echo "Code signature check failed"
         
         # Test that the app can at least start (basic smoke test)
         echo "Testing app startup..."
@@ -253,10 +264,30 @@ jobs:
            - Drag Huntarr.app to your Applications folder
            - Or run it directly from this location
         
-        First Run:
-        - macOS may show a security warning for unsigned apps
-        - Go to System Preferences > Security & Privacy
-        - Click "Open Anyway" to allow Huntarr to run
+        ⚠️  IMPORTANT - First Run Security Steps:
+        
+        If you see "Huntarr is damaged and can't be opened":
+        
+        Option 1 - Remove Quarantine (Recommended):
+        1. Open Terminal
+        2. Run: xattr -cr /Applications/Huntarr.app
+        3. Run: sudo xattr -rd com.apple.quarantine /Applications/Huntarr.app
+        4. Try opening Huntarr again
+        
+        Option 2 - System Preferences:
+        1. Go to System Preferences > Security & Privacy > General
+        2. Click "Open Anyway" next to the Huntarr warning
+        3. Confirm you want to open it
+        
+        Option 3 - Right-click Method:
+        1. Right-click on Huntarr.app
+        2. Select "Open" from the context menu
+        3. Click "Open" in the security dialog
+        
+        Why this happens:
+        - Huntarr is not signed with an Apple Developer certificate
+        - macOS Gatekeeper blocks unsigned apps by default
+        - This is normal for open-source applications
         
         Configuration:
         - Config files are stored in: ~/Library/Application Support/Huntarr/

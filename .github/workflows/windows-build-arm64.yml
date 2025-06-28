@@ -5,7 +5,7 @@ permissions:
 
 on:
   push:
-    branches: [ "main", "dev", "win-*" ]
+    branches: [ "main", "dev", "win-*", "test-*" ]
     tags:
       - "*"
   pull_request:

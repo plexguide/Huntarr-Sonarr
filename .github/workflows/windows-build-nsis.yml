@@ -6,7 +6,7 @@ permissions:
 
 on:
   push:
-    branches: [ "main", "dev", "win-*" ]
+    branches: [ "main", "dev", "win-*", "test-*" ]
     tags:
       - "*"  # This will trigger on any tag push
   pull_request:

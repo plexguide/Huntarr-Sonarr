@@ -49,89 +49,90 @@ jobs:
         pip install markdown==3.4.3
         pip install pyyaml==6.0
     
-    - name: Create PyInstaller spec
+    - name: Build macOS executable
       run: |
-        cat > Huntarr-macos-intel.spec << 'EOF'
-        # -*- mode: python ; coding: utf-8 -*-
-        from PyInstaller.building.api import PYZ, EXE, COLLECT, BUNDLE
-        from PyInstaller.building.build_main import Analysis
-        import os
+        # Use PyInstaller directly without spec file to avoid import issues
+        python -m PyInstaller \
+          --name="Huntarr" \
+          --onedir \
+          --windowed \
+          --target-arch=x86_64 \
+          --add-data="frontend:frontend" \
+          --add-data="version.txt:." \
+          --add-data="README.md:." \
+          --add-data="LICENSE:." \
+          --add-data="src:src" \
+          --hidden-import="flask" \
+          --hidden-import="flask.json" \
+          --hidden-import="requests" \
+          --hidden-import="waitress" \
+          --hidden-import="bcrypt" \
+          --hidden-import="qrcode" \
+          --hidden-import="PIL" \
+          --hidden-import="pyotp" \
+          --hidden-import="qrcode.image.pil" \
+          --hidden-import="routes" \
+          --hidden-import="main" \
+          --hidden-import="apprise" \
+          --hidden-import="apprise.common" \
+          --hidden-import="apprise.conversion" \
+          --hidden-import="apprise.decorators" \
+          --hidden-import="apprise.locale" \
+          --hidden-import="apprise.logger" \
+          --hidden-import="apprise.manager" \
+          --hidden-import="apprise.utils" \
+          --hidden-import="apprise.URLBase" \
+          --hidden-import="apprise.AppriseAsset" \
+          --hidden-import="apprise.AppriseAttachment" \
+          --hidden-import="apprise.AppriseConfig" \
+          --hidden-import="apprise.cli" \
+          --hidden-import="apprise.config" \
+          --hidden-import="apprise.attachment" \
+          --hidden-import="apprise.plugins" \
+          --hidden-import="markdown" \
+          --hidden-import="yaml" \
+          --hidden-import="cryptography" \
+          --clean \
+          --noconfirm \
+          main.py
         
-        block_cipher = None
+        # Create a simple app bundle structure manually
+        echo "Creating app bundle structure..."
+        mkdir -p "dist/Huntarr.app/Contents/MacOS"
+        mkdir -p "dist/Huntarr.app/Contents/Resources"
         
-        # Data files to include
-        datas = [
-            ('frontend', 'frontend'),
-            ('version.txt', '.'),
-            ('README.md', '.'),
-            ('LICENSE', '.'),
-            ('src', 'src'),
-        ]
+        # Copy the executable
+        cp -r "dist/Huntarr/"* "dist/Huntarr.app/Contents/MacOS/"
         
-        # Add apprise data files
-        try:
-            import apprise
-            apprise_path = os.path.dirname(apprise.__file__)
-            apprise_attachment_path = os.path.join(apprise_path, 'attachment')
-            apprise_plugins_path = os.path.join(apprise_path, 'plugins')
-            apprise_config_path = os.path.join(apprise_path, 'config')
-            
-            if os.path.exists(apprise_attachment_path):
-                datas.append((apprise_attachment_path, 'apprise/attachment'))
-            if os.path.exists(apprise_plugins_path):
-                datas.append((apprise_plugins_path, 'apprise/plugins'))
-            if os.path.exists(apprise_config_path):
-                datas.append((apprise_config_path, 'apprise/config'))
-        except ImportError:
-            print("Warning: apprise not found, skipping apprise data files")
-        
-        a = Analysis(
-            ['main.py'],
-            pathex=['.'],
-            binaries=[],
-            datas=datas,
-            hiddenimports=[
-                'flask', 'flask.json', 'requests', 'waitress', 'bcrypt', 'qrcode', 'PIL',
-                'pyotp', 'qrcode.image.pil', 'routes', 'main', 'apprise', 'apprise.common', 
-                'apprise.conversion', 'apprise.decorators', 'apprise.locale', 'apprise.logger',
-                'apprise.manager', 'apprise.utils', 'apprise.URLBase', 'apprise.AppriseAsset',
-                'apprise.AppriseAttachment', 'apprise.AppriseConfig', 'apprise.cli',
-                'apprise.config', 'apprise.attachment', 'apprise.plugins', 'markdown', 'yaml', 'cryptography',
-            ],
-            hookspath=[],
-            hooksconfig={},
-            runtime_hooks=[],
-            excludes=[],
-            cipher=block_cipher,
-            noarchive=False,
-        )
-        
-        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
-        
-        exe = EXE(
-            pyz, a.scripts, [], exclude_binaries=True, name='Huntarr',
-            debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
-            console=False, disable_windowed_traceback=False, argv_emulation=True,
-            target_arch='x86_64', codesign_identity=None, entitlements_file=None,
-        )
-        
-        coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=True, name='Huntarr')
-        
-        app = BUNDLE(
-            coll, name='Huntarr.app', bundle_identifier='io.huntarr.app',
-            info_plist={
-                'CFBundleShortVersionString': '${{ steps.meta.outputs.VERSION }}',
-                'CFBundleVersion': '${{ steps.meta.outputs.VERSION }}',
-                'NSHighResolutionCapable': True,
-                'NSRequiresAquaSystemAppearance': False,
-                'LSUIElement': False,
-                'CFBundleDocumentTypes': [],
-                'NSPrincipalClass': 'NSApplication',
-                'CFBundleExecutable': 'Huntarr',
-                'CFBundleIconFile': 'icon.icns',
-            },
-        )
-        EOF
+        # Create Info.plist
+        cat > "dist/Huntarr.app/Contents/Info.plist" << 'PLIST_EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>Huntarr</string>
+            <key>CFBundleIdentifier</key>
+            <string>io.huntarr.app</string>
+            <key>CFBundleName</key>
+            <string>Huntarr</string>
+            <key>CFBundleVersion</key>
+            <string>${{ steps.meta.outputs.VERSION }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ steps.meta.outputs.VERSION }}</string>
+            <key>CFBundleInfoDictionaryVersion</key>
+            <string>6.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+            <key>NSRequiresAquaSystemAppearance</key>
+            <false/>
+            <key>LSUIElement</key>
+            <false/>
+        </dict>
+        </plist>
+        PLIST_EOF
     
     - name: Create app icon
       run: |
@@ -186,19 +187,20 @@ jobs:
           cp /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns icon.icns 2>/dev/null || touch icon.icns
         fi
     
-    - name: Build macOS app
+    - name: Finalize app bundle
       run: |
-        # Build the app
-        python -m PyInstaller Huntarr-macos-intel.spec --clean --noconfirm
-        
         # Copy icon into the app bundle
         if [ -f "icon.icns" ]; then
           cp icon.icns dist/Huntarr.app/Contents/Resources/icon.icns || true
         fi
         
+        # Make sure the main executable is executable
+        chmod +x dist/Huntarr.app/Contents/MacOS/Huntarr
+        
         # Verify the build
         echo "Checking built app:"
         ls -la dist/
+        ls -la dist/Huntarr.app/Contents/MacOS/
         file dist/Huntarr.app/Contents/MacOS/Huntarr
         
         # Test that the app can at least start (basic smoke test)

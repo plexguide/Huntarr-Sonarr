@@ -268,18 +268,24 @@ jobs:
         
         If you see "Huntarr is damaged and can't be opened":
         
-        Option 1 - Remove Quarantine (Recommended):
+        Option 1 - Use the Fix Script (Easiest):
+        1. Open Terminal
+        2. Navigate to this folder: cd /path/to/extracted/huntarr
+        3. Run: ./fix-quarantine.sh
+        4. Try opening Huntarr again
+        
+        Option 2 - Manual Terminal Commands:
         1. Open Terminal
         2. Run: xattr -cr /Applications/Huntarr.app
         3. Run: sudo xattr -rd com.apple.quarantine /Applications/Huntarr.app
         4. Try opening Huntarr again
         
-        Option 2 - System Preferences:
+        Option 3 - System Preferences:
         1. Go to System Preferences > Security & Privacy > General
         2. Click "Open Anyway" next to the Huntarr warning
         3. Confirm you want to open it
         
-        Option 3 - Right-click Method:
+        Option 4 - Right-click Method:
         1. Right-click on Huntarr.app
         2. Select "Open" from the context menu
         3. Click "Open" in the security dialog
@@ -297,6 +303,63 @@ jobs:
         - GitHub: https://github.com/plexguide/Huntarr.io
         - Documentation: https://plexguide.github.io/Huntarr.io/
         EOF
+        
+        # Create quarantine fix script
+        cat > installer_temp/fix-quarantine.sh << 'EOF'
+        #!/bin/bash
+        echo "Huntarr macOS Quarantine Fix Script"
+        echo "===================================="
+        echo ""
+        
+        # Check if Huntarr.app exists in current directory
+        if [ ! -d "Huntarr.app" ]; then
+          echo "❌ Huntarr.app not found in current directory"
+          echo "Please navigate to the folder containing Huntarr.app and run this script again"
+          exit 1
+        fi
+        
+        echo "🔍 Found Huntarr.app in current directory"
+        echo ""
+        
+        # Remove quarantine from current location
+        echo "🧹 Removing quarantine attributes from Huntarr.app..."
+        xattr -cr Huntarr.app
+        if [ $? -eq 0 ]; then
+          echo "✅ Quarantine attributes removed from current location"
+        else
+          echo "⚠️  Warning: Could not remove quarantine attributes (this might be okay)"
+        fi
+        
+        # Check if it's installed in Applications
+        if [ -d "/Applications/Huntarr.app" ]; then
+          echo ""
+          echo "🔍 Found Huntarr.app in Applications folder"
+          echo "🧹 Removing quarantine attributes from Applications..."
+          xattr -cr /Applications/Huntarr.app
+          sudo xattr -rd com.apple.quarantine /Applications/Huntarr.app 2>/dev/null
+          if [ $? -eq 0 ]; then
+            echo "✅ Quarantine attributes removed from Applications"
+          else
+            echo "⚠️  Warning: Could not remove quarantine attributes from Applications"
+            echo "   You may need to run: sudo xattr -rd com.apple.quarantine /Applications/Huntarr.app"
+          fi
+        else
+          echo ""
+          echo "ℹ️  Huntarr.app not found in Applications folder"
+          echo "   If you plan to install it there, run this script again after installation"
+        fi
+        
+        echo ""
+        echo "🎉 Quarantine fix completed!"
+        echo ""
+        echo "You should now be able to open Huntarr without the 'damaged' warning."
+        echo "If you still see the warning, try:"
+        echo "1. Right-click on Huntarr.app and select 'Open'"
+        echo "2. Click 'Open' in the security dialog"
+        echo ""
+        EOF
+        
+        chmod +x installer_temp/fix-quarantine.sh
         
         # Create archive
         version="${{ steps.meta.outputs.VERSION }}"

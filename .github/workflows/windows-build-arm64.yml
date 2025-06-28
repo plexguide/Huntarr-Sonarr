@@ -1,6 +1,5 @@
-name: Windows Build AMD64
+name: Windows Build ARM64
 
-# Add permissions needed for creating releases
 permissions:
   contents: write
 
@@ -8,7 +7,7 @@ on:
   push:
     branches: [ "main", "dev", "win-*" ]
     tags:
-      - "*"  # This will trigger on any tag push
+      - "*"
   pull_request:
     branches: [ "main", "dev" ]
   workflow_dispatch:
@@ -56,17 +55,19 @@ jobs:
         dir
         dir config
         
-    - name: Build with PyInstaller
+    - name: Create ARM64 PyInstaller spec
+      shell: bash
       run: |
-        # Copy spec file from distribution directory to root
-        cp distribution/windows/huntarr.spec .
+        # Copy and modify the existing spec for ARM64
+        cp distribution/windows/huntarr.spec huntarr-arm64.spec
         
-        # Use the dedicated build script from the distribution directory
-        python -m pip install -r requirements.txt
-        python -m pip install pywin32
+        # Modify for ARM64 target architecture
+        sed -i 's/target_arch=None/target_arch="arm64"/' huntarr-arm64.spec
         
-        # Build with apprise support (apprise data files are included in the spec file)
-        pyinstaller -y distribution/windows/huntarr.spec
+    - name: Build with PyInstaller for ARM64
+      run: |
+        # Build with ARM64 target
+        pyinstaller -y huntarr-arm64.spec
         
         # Display contents of dist/Huntarr
         dir dist/Huntarr
@@ -74,6 +75,15 @@ jobs:
     - name: Install NSIS
       run: |
         choco install nsis -y
+        
+    - name: Create ARM64 NSIS installer script
+      shell: bash
+      run: |
+        # Create a modified NSIS script for ARM64
+        cp distribution/windows/installer/huntarr_installer.nsi huntarr_installer_arm64.nsi
+        
+        # Modify the output filename for ARM64
+        sed -i 's/Huntarr-${VERSION}-win\.exe/Huntarr-${VERSION}-win-arm64.exe/' huntarr_installer_arm64.nsi
         
     - name: Build NSIS Installer
       run: |
@@ -94,7 +104,7 @@ jobs:
         $MakensisArgs = @(
             "/DVERSIONFILE=$AbsVersionFile",
             "/DPROJECT_ROOT=$($PWD.Path)",
-            "distribution\windows\installer\huntarr_installer.nsi"
+            "huntarr_installer_arm64.nsi"
         )
         
         # Run NSIS compiler
@@ -103,13 +113,11 @@ jobs:
         
         # Check if installer was created
         $version = (Get-Content version.txt).Trim()
-        $installerPath = "distribution\windows\installer\installer\Huntarr-${version}-win.exe"
+        $installerPath = "installer\Huntarr-${version}-win-arm64.exe"
         if (Test-Path $installerPath) {
-            Write-Host "Installer created successfully at $installerPath"
-            # Copy to expected upload location
-            Copy-Item -Path $installerPath -Destination "installer\Huntarr-${version}-win.exe" -Force
+            Write-Host "ARM64 installer created successfully at $installerPath"
         } else {
-            Write-Error "Installer was not created. Check the logs above for errors."
+            Write-Error "ARM64 installer was not created. Check the logs above for errors."
             exit 1
         }
         
@@ -119,13 +127,13 @@ jobs:
     - name: Upload installer
       uses: actions/upload-artifact@v4
       with:
-        name: huntarr-installer
-        path: installer/Huntarr-*-win.exe
+        name: huntarr-installer-arm64
+        path: installer/Huntarr-*-win-arm64.exe
         
     - name: Upload to release
       if: steps.meta.outputs.IS_TAG == 'true'
       uses: softprops/action-gh-release@v1
       with:
-        files: installer/Huntarr-*-win.exe
+        files: installer/Huntarr-*-win-arm64.exe
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

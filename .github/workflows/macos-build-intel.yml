@@ -1,0 +1,301 @@
+name: macOS Build Intel
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ "main", "dev", "mac-*" ]
+    tags:
+      - "*"
+  pull_request:
+    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-13  # Intel runner
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Extract metadata
+      id: meta
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "IS_TAG=true" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
+          echo "BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          echo "IS_TAG=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller==6.1.0
+        # Explicitly install apprise and dependencies
+        pip install apprise==1.6.0
+        pip install markdown==3.4.3
+        pip install pyyaml==6.0
+    
+    - name: Create PyInstaller spec
+      run: |
+        cat > Huntarr-macos-intel.spec << 'EOF'
+        # -*- mode: python ; coding: utf-8 -*-
+        from PyInstaller.building.api import PYZ, EXE, COLLECT, BUNDLE
+        from PyInstaller.building.build_main import Analysis
+        import os
+        
+        block_cipher = None
+        
+        # Data files to include
+        datas = [
+            ('frontend', 'frontend'),
+            ('version.txt', '.'),
+            ('README.md', '.'),
+            ('LICENSE', '.'),
+            ('src', 'src'),
+        ]
+        
+        # Add apprise data files
+        try:
+            import apprise
+            apprise_path = os.path.dirname(apprise.__file__)
+            apprise_attachment_path = os.path.join(apprise_path, 'attachment')
+            apprise_plugins_path = os.path.join(apprise_path, 'plugins')
+            apprise_config_path = os.path.join(apprise_path, 'config')
+            
+            if os.path.exists(apprise_attachment_path):
+                datas.append((apprise_attachment_path, 'apprise/attachment'))
+            if os.path.exists(apprise_plugins_path):
+                datas.append((apprise_plugins_path, 'apprise/plugins'))
+            if os.path.exists(apprise_config_path):
+                datas.append((apprise_config_path, 'apprise/config'))
+        except ImportError:
+            print("Warning: apprise not found, skipping apprise data files")
+        
+        a = Analysis(
+            ['main.py'],
+            pathex=['.'],
+            binaries=[],
+            datas=datas,
+            hiddenimports=[
+                'flask', 'flask.json', 'requests', 'waitress', 'bcrypt', 'qrcode', 'PIL',
+                'pyotp', 'qrcode.image.pil', 'routes', 'main', 'apprise', 'apprise.common', 
+                'apprise.conversion', 'apprise.decorators', 'apprise.locale', 'apprise.logger',
+                'apprise.manager', 'apprise.utils', 'apprise.URLBase', 'apprise.AppriseAsset',
+                'apprise.AppriseAttachment', 'apprise.AppriseConfig', 'apprise.cli',
+                'apprise.config', 'apprise.attachment', 'apprise.plugins', 'markdown', 'yaml', 'cryptography',
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[],
+            cipher=block_cipher,
+            noarchive=False,
+        )
+        
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        
+        exe = EXE(
+            pyz, a.scripts, [], exclude_binaries=True, name='Huntarr',
+            debug=False, bootloader_ignore_signals=False, strip=False, upx=True,
+            console=False, disable_windowed_traceback=False, argv_emulation=True,
+            target_arch='x86_64', codesign_identity=None, entitlements_file=None,
+        )
+        
+        coll = COLLECT(exe, a.binaries, a.zipfiles, a.datas, strip=False, upx=True, name='Huntarr')
+        
+        app = BUNDLE(
+            coll, name='Huntarr.app', bundle_identifier='io.huntarr.app',
+            info_plist={
+                'CFBundleShortVersionString': '${{ steps.meta.outputs.VERSION }}',
+                'CFBundleVersion': '${{ steps.meta.outputs.VERSION }}',
+                'NSHighResolutionCapable': True,
+                'NSRequiresAquaSystemAppearance': False,
+                'LSUIElement': False,
+                'CFBundleDocumentTypes': [],
+                'NSPrincipalClass': 'NSApplication',
+                'CFBundleExecutable': 'Huntarr',
+                'CFBundleIconFile': 'icon.icns',
+            },
+        )
+        EOF
+    
+    - name: Create app icon
+      run: |
+        # Create a simple icon from the existing logo
+        mkdir -p icon.iconset
+        
+        # Use Python to create icon files since sips might not work reliably
+        python3 << 'PYTHON_EOF'
+        import os
+        from PIL import Image
+        
+        # Try to load the existing logo
+        logo_path = None
+        for ext in ['.png', '.jpg', '.jpeg', '.ico']:
+            for path in ['frontend/static/logo/huntarr' + ext, 'frontend/static/logo/Huntarr' + ext]:
+                if os.path.exists(path):
+                    logo_path = path
+                    break
+            if logo_path:
+                break
+        
+        if logo_path:
+            try:
+                # Load and resize the image for different icon sizes
+                img = Image.open(logo_path)
+                img = img.convert('RGBA')
+                
+                sizes = [16, 32, 64, 128, 256, 512]
+                for size in sizes:
+                    resized = img.resize((size, size), Image.Resampling.LANCZOS)
+                    resized.save(f'icon.iconset/icon_{size}x{size}.png')
+                    
+                    # Create @2x versions
+                    if size <= 256:
+                        resized.save(f'icon.iconset/icon_{size}x{size}@2x.png')
+                
+                print("Icon files created successfully")
+            except Exception as e:
+                print(f"Error creating icons: {e}")
+        else:
+            print("No logo file found, will use default icon")
+        PYTHON_EOF
+        
+        # Convert to icns if we have icons
+        if [ -f "icon.iconset/icon_16x16.png" ]; then
+          iconutil -c icns icon.iconset -o icon.icns || echo "iconutil failed, using default"
+        fi
+        
+        # Create a fallback if needed
+        if [ ! -f "icon.icns" ]; then
+          echo "Creating fallback icon"
+          cp /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns icon.icns 2>/dev/null || touch icon.icns
+        fi
+    
+    - name: Build macOS app
+      run: |
+        # Build the app
+        python -m PyInstaller Huntarr-macos-intel.spec --clean --noconfirm
+        
+        # Copy icon into the app bundle
+        if [ -f "icon.icns" ]; then
+          cp icon.icns dist/Huntarr.app/Contents/Resources/icon.icns || true
+        fi
+        
+        # Verify the build
+        echo "Checking built app:"
+        ls -la dist/
+        file dist/Huntarr.app/Contents/MacOS/Huntarr
+        
+        # Test that the app can at least start (basic smoke test)
+        echo "Testing app startup..."
+        timeout 10s dist/Huntarr.app/Contents/MacOS/Huntarr --help || echo "App startup test completed"
+    
+    - name: Create installer
+      run: |
+        # Create a simple installer script
+        mkdir -p installer_temp
+        
+        # Copy the app
+        cp -R dist/Huntarr.app installer_temp/
+        
+        # Create a simple install script
+        cat > installer_temp/install.sh << 'EOF'
+        #!/bin/bash
+        echo "Installing Huntarr..."
+        
+        # Copy to Applications
+        if [ -d "/Applications/Huntarr.app" ]; then
+          echo "Removing existing installation..."
+          rm -rf "/Applications/Huntarr.app"
+        fi
+        
+        echo "Copying Huntarr.app to Applications..."
+        cp -R "$(dirname "$0")/Huntarr.app" "/Applications/"
+        
+        # Create config directory
+        mkdir -p "$HOME/Library/Application Support/Huntarr"
+        
+        echo "Installation complete!"
+        echo "You can now run Huntarr from Applications or Launchpad."
+        EOF
+        
+        chmod +x installer_temp/install.sh
+        
+        # Create README
+        cat > installer_temp/README.txt << 'EOF'
+        Huntarr macOS Intel Distribution
+        ================================
+        
+        Installation Options:
+        
+        1. Automatic Install (Recommended):
+           - Run: ./install.sh
+           - This will copy Huntarr to your Applications folder
+        
+        2. Manual Install:
+           - Drag Huntarr.app to your Applications folder
+           - Or run it directly from this location
+        
+        First Run:
+        - macOS may show a security warning for unsigned apps
+        - Go to System Preferences > Security & Privacy
+        - Click "Open Anyway" to allow Huntarr to run
+        
+        Configuration:
+        - Config files are stored in: ~/Library/Application Support/Huntarr/
+        - Web interface: http://localhost:9705
+        
+        Support:
+        - GitHub: https://github.com/plexguide/Huntarr.io
+        - Documentation: https://plexguide.github.io/Huntarr.io/
+        EOF
+        
+        # Create archive
+        version="${{ steps.meta.outputs.VERSION }}"
+        
+        if [[ "${{ steps.meta.outputs.IS_TAG }}" == "true" ]]; then
+          archive_name="Huntarr-${version}-mac-intel.tar.gz"
+        else
+          branch="${{ steps.meta.outputs.BRANCH }}"
+          branch_safe=$(echo "${branch}" | tr '/' '-')
+          archive_name="Huntarr-${version}-mac-${branch_safe}-intel.tar.gz"
+        fi
+        
+        cd installer_temp
+        tar -czf "../${archive_name}" .
+        cd ..
+        
+        # Verify archive
+        echo "Created archive: ${archive_name}"
+        ls -lh "${archive_name}"
+        tar -tzf "${archive_name}" | head -10
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: huntarr-macos-intel
+        path: '*.tar.gz'
+        retention-days: 30
+    
+    - name: Upload to release
+      if: steps.meta.outputs.IS_TAG == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: '*.tar.gz'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

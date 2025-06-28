@@ -1,0 +1,260 @@
+name: Linux Build ARM64
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ "main", "dev", "linux-*" ]
+    tags:
+      - "*"
+  pull_request:
+    branches: [ "main", "dev" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Extract metadata
+      id: meta
+      shell: bash
+      run: |
+        if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "IS_TAG=true" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=$(cat version.txt)" >> $GITHUB_OUTPUT
+          echo "BRANCH=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
+          echo "IS_TAG=false" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Set up QEMU for ARM64 emulation
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: arm64
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build in ARM64 container
+      run: |
+        # Create a Dockerfile for ARM64 build
+        cat > Dockerfile.arm64-build << 'EOF'
+        FROM --platform=linux/arm64 python:3.10-slim
+        
+        # Install system dependencies
+        RUN apt-get update && apt-get install -y \
+            build-essential \
+            && rm -rf /var/lib/apt/lists/*
+        
+        # Set working directory
+        WORKDIR /app
+        
+        # Copy requirements and install Python dependencies
+        COPY requirements.txt .
+        RUN pip install --no-cache-dir -r requirements.txt && \
+            pip install --no-cache-dir pyinstaller==6.1.0 && \
+            pip install --no-cache-dir apprise==1.6.0 markdown==3.4.3 pyyaml==6.0
+        
+        # Copy source code
+        COPY . .
+        
+        # Create PyInstaller spec
+        RUN cat > Huntarr-linux-arm64.spec << 'SPEC_EOF'
+        # -*- mode: python ; coding: utf-8 -*-
+        from PyInstaller.building.api import PYZ, EXE, COLLECT
+        from PyInstaller.building.build_main import Analysis
+        import os
+        
+        block_cipher = None
+        
+        datas = [
+            ('frontend', 'frontend'),
+            ('version.txt', '.'),
+            ('README.md', '.'),
+            ('LICENSE', '.'),
+            ('src', 'src'),
+        ]
+        
+        # Add apprise data files
+        try:
+            import apprise
+            apprise_path = os.path.dirname(apprise.__file__)
+            apprise_attachment_path = os.path.join(apprise_path, 'attachment')
+            apprise_plugins_path = os.path.join(apprise_path, 'plugins')
+            apprise_config_path = os.path.join(apprise_path, 'config')
+            
+            if os.path.exists(apprise_attachment_path):
+                datas.append((apprise_attachment_path, 'apprise/attachment'))
+            if os.path.exists(apprise_plugins_path):
+                datas.append((apprise_plugins_path, 'apprise/plugins'))
+            if os.path.exists(apprise_config_path):
+                datas.append((apprise_config_path, 'apprise/config'))
+        except ImportError:
+            print("Warning: apprise not found, skipping apprise data files")
+        
+        a = Analysis(
+            ['main.py'],
+            pathex=['.'],
+            binaries=[],
+            datas=datas,
+            hiddenimports=[
+                'flask', 'flask.json', 'requests', 'waitress', 'bcrypt', 'qrcode', 'PIL',
+                'pyotp', 'qrcode.image.pil', 'routes', 'main', 'apprise', 'apprise.common', 
+                'apprise.conversion', 'apprise.decorators', 'apprise.locale', 'apprise.logger',
+                'apprise.manager', 'apprise.utils', 'apprise.URLBase', 'apprise.AppriseAsset',
+                'apprise.AppriseAttachment', 'apprise.AppriseConfig', 'apprise.cli',
+                'apprise.config', 'apprise.attachment', 'apprise.plugins', 'markdown', 'yaml', 'cryptography',
+            ],
+            hookspath=[],
+            hooksconfig={},
+            runtime_hooks=[],
+            excludes=[],
+            cipher=block_cipher,
+            noarchive=False,
+        )
+        
+        pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+        
+        exe = EXE(
+            pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [],
+            name='huntarr', debug=False, bootloader_ignore_signals=False,
+            strip=False, upx=False, upx_exclude=[], runtime_tmpdir=None,
+            console=True, disable_windowed_traceback=False,
+        )
+        SPEC_EOF
+        
+        # Build the executable
+        RUN python -m PyInstaller Huntarr-linux-arm64.spec --clean
+        
+        # Verify architecture
+        RUN file dist/huntarr && chmod +x dist/huntarr
+        
+        # Create distribution package
+        RUN mkdir -p dist/huntarr-linux-arm64 && \
+            cp dist/huntarr dist/huntarr-linux-arm64/
+        
+        # Create startup script
+        RUN cat > dist/huntarr-linux-arm64/start-huntarr.sh << 'SCRIPT_EOF'
+        #!/bin/bash
+        # Huntarr Linux ARM64 Startup Script
+        
+        # Get the directory where this script is located
+        SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        cd "$SCRIPT_DIR"
+        
+        # Set up config directory in user's home
+        export HUNTARR_CONFIG_DIR="$HOME/.config/huntarr"
+        mkdir -p "$HUNTARR_CONFIG_DIR"
+        
+        # Set permissions
+        chmod -R 755 "$HUNTARR_CONFIG_DIR" 2>/dev/null || true
+        
+        echo "Starting Huntarr (ARM64)..."
+        echo "Config directory: $HUNTARR_CONFIG_DIR"
+        echo "Web interface will be available at: http://localhost:9705"
+        echo ""
+        
+        # Start Huntarr
+        ./huntarr
+        SCRIPT_EOF
+        
+        RUN chmod +x dist/huntarr-linux-arm64/start-huntarr.sh
+        
+        # Create README
+        RUN cat > dist/huntarr-linux-arm64/README.txt << 'README_EOF'
+        Huntarr Linux ARM64 Distribution
+        ================================
+        
+        Installation:
+        1. Extract this archive to your desired location
+        2. Run: ./start-huntarr.sh
+        3. Open your browser to: http://localhost:9705
+        
+        Files:
+        - huntarr: Main executable (ARM64)
+        - start-huntarr.sh: Startup script (recommended)
+        - README.txt: This file
+        
+        Configuration:
+        - Config files will be stored in: ~/.config/huntarr/
+        - Logs are stored in the database (no separate log files)
+        
+        Requirements:
+        - Linux ARM64 (aarch64) system
+        - No additional dependencies required (all bundled)
+        
+        Compatible with:
+        - Raspberry Pi 4/5 (64-bit OS)
+        - ARM-based servers and cloud instances
+        - Apple Silicon Macs (via Docker/VM)
+        
+        Support:
+        - GitHub: https://github.com/plexguide/Huntarr.io
+        - Documentation: https://plexguide.github.io/Huntarr.io/
+        README_EOF
+        
+        # Copy license and version info
+        RUN cp LICENSE dist/huntarr-linux-arm64/ 2>/dev/null || true
+        RUN cp version.txt dist/huntarr-linux-arm64/ 2>/dev/null || true
+        
+        # Show contents and architecture info
+        RUN ls -la dist/huntarr-linux-arm64/ && \
+            echo "Architecture verification:" && \
+            file dist/huntarr-linux-arm64/huntarr
+        EOF
+        
+        # Build the ARM64 executable using Docker
+        docker buildx build --platform linux/arm64 -f Dockerfile.arm64-build -t huntarr-arm64-builder .
+        
+        # Extract the built files
+        docker create --name huntarr-arm64-container huntarr-arm64-builder
+        docker cp huntarr-arm64-container:/app/dist/huntarr-linux-arm64 ./dist/
+        docker rm huntarr-arm64-container
+        
+        # Verify what we extracted
+        ls -la dist/huntarr-linux-arm64/
+        file dist/huntarr-linux-arm64/huntarr
+    
+    - name: Create archive
+      run: |
+        version="${{ steps.meta.outputs.VERSION }}"
+        
+        if [[ "${{ steps.meta.outputs.IS_TAG }}" == "true" ]]; then
+          archive_name="Huntarr-${version}-linux-arm64.tar.gz"
+        else
+          branch="${{ steps.meta.outputs.BRANCH }}"
+          branch_safe=$(echo "${branch}" | tr '/' '-')
+          archive_name="Huntarr-${version}-linux-${branch_safe}-arm64.tar.gz"
+        fi
+        
+        cd dist
+        tar -czf "../${archive_name}" huntarr-linux-arm64/
+        cd ..
+        
+        # Verify archive
+        echo "Created archive: ${archive_name}"
+        ls -lh "${archive_name}"
+        tar -tzf "${archive_name}" | head -10
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: huntarr-linux-arm64
+        path: '*.tar.gz'
+        retention-days: 30
+    
+    - name: Upload to release
+      if: steps.meta.outputs.IS_TAG == 'true'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: '*.tar.gz'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 

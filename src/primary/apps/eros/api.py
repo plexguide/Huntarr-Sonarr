@@ -22,7 +22,7 @@ eros_logger = get_logger("eros")
 # Use a session for better performance
 session = requests.Session()
 
-def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, method: str = "GET", data: Dict = None, count_api: bool = True) -> Any:
+def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, method: str = "GET", count_api: bool = True, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
     """
     Make a request to the Eros API.
     
@@ -344,7 +344,7 @@ def refresh_item(api_url: str, api_key: str, api_timeout: int, item_id: int) -> 
     # Return a placeholder command ID to simulate success without actually refreshing
     return 123
 
-def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int]) -> int:
+def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int], verify_ssl: Optional[bool] = None) -> int:
     """
     Trigger a search for one or more movies in Whisparr V3.
     
@@ -389,7 +389,7 @@ def item_search(api_url: str, api_key: str, api_timeout: int, item_ids: List[int
             eros_logger.debug(f"Trying search command format {i+1}: {payload}")
             
             # Make the API request
-            response = arr_request(api_url, api_key, api_timeout, command_endpoint, "POST", payload)
+            response = arr_request(api_url, api_key, api_timeout, command_endpoint, "POST", payload, verify_ssl=verify_ssl)
             
             if response and "id" in response:
                 command_id = response["id"]
@@ -455,6 +455,7 @@ def check_connection(api_url: str, api_key: str, api_timeout: int) -> bool:
         api_url: The base URL of the Whisparr V3 API
         api_key: The API key for authentication
         api_timeout: Timeout for the API request
+        verify_ssl: Whether to verify SSL certificates (overrides global setting if provided)
         
     Returns:
         True if the connection is successful, False otherwise

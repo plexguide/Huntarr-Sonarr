@@ -7,6 +7,7 @@ Handles all communication with the Arr API
 import requests
 import time
 from typing import List, Dict, Any, Optional, Union
+from primary.settings_manager import get_ssl_verify_setting
 from primary.utils.logger import logger, debug_log
 from primary.config import API_KEY, API_URL, API_TIMEOUT, COMMAND_WAIT_DELAY, COMMAND_WAIT_ATTEMPTS, APP_TYPE
 from src.primary.stats_manager import get_stats, reset_stats
@@ -37,12 +38,18 @@ def arr_request(endpoint: str, method: str = "GET", data: Dict = None) -> Option
         "X-Api-Key": API_KEY,
         "Content-Type": "application/json"
     }
+
+    # Get SSL verification setting
+    verify_ssl = get_ssl_verify_setting()
+    
+    if not verify_ssl:
+        logger.debug("SSL verification disabled by global user setting")
     
     try:
         if method.upper() == "GET":
-            response = session.get(url, headers=headers, timeout=API_TIMEOUT)
+            response = session.get(url, headers=headers, timeout=API_TIMEOUT, verify=verify_ssl)
         elif method.upper() == "POST":
-            response = session.post(url, headers=headers, json=data, timeout=API_TIMEOUT)
+            response = session.post(url, headers=headers, json=data, timeout=API_TIMEOUT, verify=verify_ssl)
         else:
             logger.error(f"Unsupported HTTP method: {method}")
             return None
@@ -115,7 +122,14 @@ def check_connection(app_type: str = None) -> bool:
         }
         
         logger.debug(f"Testing connection with URL: {url}")
-        response = session.get(url, headers=headers, timeout=API_TIMEOUT)
+
+        # Get SSL verification setting
+        verify_ssl = get_ssl_verify_setting()
+        
+        if not verify_ssl:
+            logger.debug("SSL verification disabled by global user setting")
+
+        response = session.get(url, headers=headers, timeout=API_TIMEOUT, verify=verify_ssl)
         
         if response.status_code == 401:
             logger.error(f"Connection test failed: 401 Client Error: Unauthorized - Invalid API key for {current_app_type.title()}")

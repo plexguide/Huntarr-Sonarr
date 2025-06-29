@@ -10,6 +10,7 @@ import sys
 import time
 import datetime
 import traceback
+import random
 from typing import List, Dict, Any, Optional, Union, Callable
 # Correct the import path
 from src.primary.utils.logger import get_logger
@@ -21,7 +22,7 @@ sonarr_logger = get_logger("sonarr")
 # Use a session for better performance
 session = requests.Session()
 
-def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, method: str = "GET", data: Dict = None, count_api: bool = True) -> Any:
+def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, method: str = "GET", count_api: bool = True, data: Optional[Dict] = None, params: Optional[Dict] = None) -> Any:
     """
     Make a request to the Sonarr API.
     
@@ -32,6 +33,7 @@ def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, met
         endpoint: The API endpoint to call
         method: HTTP method (GET, POST, PUT, DELETE)
         data: Optional data payload for POST/PUT requests
+        params: Optional query parameters for GET requests
     
     Returns:
         The parsed JSON response or None if the request failed
@@ -48,7 +50,7 @@ def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, met
             
         # Construct the full URL properly
         full_url = f"{api_url.rstrip('/')}/api/v3/{endpoint.lstrip('/')}"
-        
+
         # Set up headers with User-Agent to identify Huntarr
         headers = {
             "X-Api-Key": api_key,
@@ -56,15 +58,17 @@ def arr_request(api_url: str, api_key: str, api_timeout: int, endpoint: str, met
             "User-Agent": "Huntarr/1.0 (https://github.com/plexguide/Huntarr.io)"
         }
         
+        # Log the User-Agent for debugging
+        sonarr_logger.debug(f"Using User-Agent: {headers['User-Agent']}")
+
         # Get SSL verification setting
         verify_ssl = get_ssl_verify_setting()
         
-        if not verify_ssl:
-            sonarr_logger.debug("SSL verification disabled by user setting")
+        sonarr_logger.debug(f"Making {method} request to: {full_url} with SSL verification: {verify_ssl}")
         
         try:
             if method.upper() == "GET":
-                response = session.get(full_url, headers=headers, timeout=api_timeout, verify=verify_ssl)
+                response = session.get(full_url, headers=headers, params=params, timeout=api_timeout, verify=verify_ssl)
             elif method.upper() == "POST":
                 response = session.post(full_url, headers=headers, json=data, timeout=api_timeout, verify=verify_ssl)
             elif method.upper() == "PUT":
@@ -232,22 +236,15 @@ def get_calendar(api_url: str, api_key: str, api_timeout: int, start_date: Optio
     Returns:
         Calendar information or empty list if request failed
     """
-    params = []
-    
+    params = {}
     if start_date:
-        params.append(f"start={start_date}")
-    
+        params['start'] = start_date
     if end_date:
-        params.append(f"end={end_date}")
-    
+        params['end'] = end_date
     endpoint = "calendar"
-    if params:
-        endpoint = f"{endpoint}?{'&'.join(params)}"
-    
-    response = arr_request(api_url, api_key, api_timeout, endpoint, count_api=False)
-    if response:
-        return response
-    return []
+
+    response = arr_request(api_url, api_key, api_timeout, endpoint, params=params, count_api=False)
+    return response if response else []
 
 def command_status(api_url: str, api_key: str, api_timeout: int, command_id: Union[int, str]) -> Dict:
     """
@@ -295,95 +292,42 @@ def get_missing_episodes(api_url: str, api_key: str, api_timeout: int, monitored
             
             # Ensure proper URL construction with scheme
             base_url = api_url.rstrip('/')
-            url = f"{base_url}/api/v3/{endpoint.lstrip('/')}"
             sonarr_logger.debug(f"Requesting missing episodes page {page} (attempt {retry_count+1}/{retries_per_page+1})")
             
             try:
-                response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-                response.raise_for_status() # Check for HTTP errors (4xx or 5xx)
-                
-                if not response.content:
-                    sonarr_logger.warning(f"Empty response for missing episodes page {page} (attempt {retry_count+1})")
+                response = arr_request(base_url, api_key, api_timeout, endpoint, params=params)
+                if not response or "records" not in response:
                     if retry_count < retries_per_page:
                         retry_count += 1
                         time.sleep(retry_delay)
                         continue
                     else:
-                        sonarr_logger.error(f"Giving up on empty response after {retries_per_page+1} attempts")
-                        break  # Exit the retry loop, continuing to next page or ending
-                
-                try:
-                    data = response.json()
-                    records = data.get('records', [])
-                    total_records_on_page = len(records)
-                    sonarr_logger.debug(f"Parsed {total_records_on_page} missing episode records from page {page}")
-                    
-                    if not records: # No more records found
-                        sonarr_logger.debug(f"No more records found on page {page}. Stopping pagination.")
-                        success = True  # Mark as successful even though no records (might be legitimate)
-                        break  # Exit retry loop, then also exit pagination loop
-                    
-                    all_missing_episodes.extend(records)
-                    
-                    # Check if this was the last page
-                    if total_records_on_page < page_size:
-                        sonarr_logger.debug(f"Received {total_records_on_page} records (less than page size {page_size}). Last page.")
-                        success = True
-                        break  # Exit retry loop, then also exit pagination loop
-                    
-                    # We got records and need to continue - mark success for this page
+                        break
+                records = response.get('records', [])
+                total_records_on_page = len(records)
+                if not records:
                     success = True
-                    break  # Exit retry loop, continue to next page
-                    
-                except json.JSONDecodeError as e:
-                    sonarr_logger.error(f"Failed to decode JSON response for missing episodes page {page} (attempt {retry_count+1}): {e}")
-                    if retry_count < retries_per_page:
-                        retry_count += 1
-                        time.sleep(retry_delay)
-                        continue
-                    else:
-                        sonarr_logger.error(f"Giving up after {retries_per_page+1} failed JSON decode attempts")
-                        break  # Exit retry loop, moving to next page or ending
-    
-            except requests.exceptions.RequestException as e:
-                sonarr_logger.error(f"Request error for missing episodes page {page} (attempt {retry_count+1}): {e}")
-                if retry_count < retries_per_page:
-                    retry_count += 1
-                    time.sleep(retry_delay)
-                    continue
-                else:
-                    sonarr_logger.error(f"Giving up on request after {retries_per_page+1} failed attempts")
-                    break  # Exit retry loop
+                    break
+                all_missing_episodes.extend(records)
+                if total_records_on_page < page_size:
+                    success = True
+                    break
+                success = True
+                break
             except Exception as e:
-                sonarr_logger.error(f"Unexpected error for missing episodes page {page} (attempt {retry_count+1}): {e}")
                 if retry_count < retries_per_page:
                     retry_count += 1
                     time.sleep(retry_delay)
                     continue
                 else:
-                    sonarr_logger.error(f"Giving up after unexpected error and {retries_per_page+1} attempts")
-                    break  # Exit retry loop
-        
-        # If we didn't succeed after all retries or there are no more records, stop pagination
+                    break
         if not success or not records:
             break
-            
-        # Prepare for the next page
         page += 1
-    
-    sonarr_logger.info(f"Total missing episodes fetched across all pages: {len(all_missing_episodes)}")
-
-    # Apply monitored filter after fetching all pages
     if monitored_only:
-        original_count = len(all_missing_episodes)
-        filtered_missing = [
-            ep for ep in all_missing_episodes 
-            if ep.get('series', {}).get('monitored', False) and ep.get('monitored', False)
-        ]
-        sonarr_logger.debug(f"Filtered for monitored_only=True: {len(filtered_missing)} monitored episodes (out of {original_count} total)")
+        filtered_missing = [ep for ep in all_missing_episodes if ep.get('series', {}).get('monitored', False) and ep.get('monitored', False)]
         return filtered_missing
     else:
-        sonarr_logger.debug(f"Returning {len(all_missing_episodes)} episodes (monitored_only=False)")
         return all_missing_episodes
 
 def get_cutoff_unmet_episodes(api_url: str, api_key: str, api_timeout: int, monitored_only: bool) -> List[Dict[str, Any]]:
@@ -412,13 +356,12 @@ def get_cutoff_unmet_episodes(api_url: str, api_key: str, api_timeout: int, moni
                 "sortDir": "asc",
                 "monitored": monitored_only
             }
-            url = f"{api_url}/api/v3/{endpoint}"
             sonarr_logger.debug(f"Requesting cutoff unmet page {page} (attempt {retry_count+1}/{retries_per_page+1})")
 
             try:
-                response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-                sonarr_logger.debug(f"Sonarr API response status code for cutoff unmet page {page}: {response.status_code}")
-                response.raise_for_status() # Check for HTTP errors
+                response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+                sonarr_logger.debug(f"Sonarr API response status code for cutoff unmet page {page}")
+                if isinstance(response, dict):
                 
                 if not response.content:
                     sonarr_logger.warning(f"Empty response for cutoff unmet episodes page {page} (attempt {retry_count+1})")
@@ -557,10 +500,12 @@ def get_cutoff_unmet_episodes_random_page(api_url: str, api_key: str, api_timeou
     
     try:
         # Get total record count from a minimal query
-        response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-        response.raise_for_status()
-        data = response.json()
-        total_records = data.get('totalRecords', 0)
+        response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+        if not response or "totalRecords" not in response:
+            sonarr_logger.warning("Empty or invalid response when getting cutoff unmet count")
+            return []
+        
+        total_records = response.get('totalRecords', 0)
         
         if total_records == 0:
             sonarr_logger.info("No cutoff unmet episodes found in Sonarr.")
@@ -586,10 +531,11 @@ def get_cutoff_unmet_episodes_random_page(api_url: str, api_key: str, api_timeou
             "monitored": monitored_only
         }
         
-        response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-        response.raise_for_status()
-        
-        data = response.json()
+        response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+        if not response or "records" not in response:
+            sonarr_logger.warning(f"Empty or invalid response when getting cutoff unmet episodes page {random_page}")
+            return []        
+        data = response
         records = data.get('records', [])
         sonarr_logger.info(f"Retrieved {len(records)} episodes from page {random_page}")
         
@@ -639,10 +585,11 @@ def get_missing_episodes_random_page(api_url: str, api_key: str, api_timeout: in
         A list of randomly selected missing episodes, up to the requested count
     """
     endpoint = "wanted/missing"
-    page_size = 100  # Smaller page size for better performance
+    page_size = 1000
     retries = 2
-    retry_delay = 3
-    
+    retry_delay = 3 
+    series_id = None
+
     # First, make a request to get just the total record count (page 1 with size=1)
     params = {
         "page": 1,
@@ -650,20 +597,22 @@ def get_missing_episodes_random_page(api_url: str, api_key: str, api_timeout: in
         "includeSeries": "true",  # Include series info for filtering
         "monitored": monitored_only
     }
-    url = f"{api_url}/api/v3/{endpoint}"
     
     for attempt in range(retries + 1):
         try:
             # Get total record count from a minimal query
-            sonarr_logger.debug(f"Getting missing episodes count (attempt {attempt+1}/{retries+1})")
-            response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-            response.raise_for_status()
-            
-            if not response.content:
-                sonarr_logger.warning(f"Empty response when getting missing count (attempt {attempt+1})")
+            response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+            if not response or "totalRecords" not in response:
+                sonarr_logger.warning(f"Empty or invalid response when getting missing count (attempt {attempt+1})")
                 if attempt < retries:
                     time.sleep(retry_delay)
                     continue
+                return []
+            data = response
+            total_records = data.get('totalRecords', 0)
+            
+            if total_records == 0:
+                sonarr_logger.info("No missing episodes found in Sonarr.")
                 return []
                 
             try:
@@ -696,17 +645,17 @@ def get_missing_episodes_random_page(api_url: str, api_key: str, api_timeout: in
                 
                 if series_id is not None:
                     params["seriesId"] = series_id
-                
-                response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
-                response.raise_for_status()
-                
-                if not response.content:
-                    sonarr_logger.warning(f"Empty response when getting missing episodes page {random_page}")
-                    return []
-                    
+
                 try:
-                    data = response.json()
-                    records = data.get('records', [])
+                    response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+                    if not response or "records" not in response:
+                        sonarr_logger.warning(f"Empty or invalid response when getting missing episodes page {random_page}")
+                        if attempt < retries:
+                            time.sleep(retry_delay)
+                            continue
+                        return []
+                    
+                    records = response.get('records', [])
                     sonarr_logger.info(f"Retrieved {len(records)} missing episodes from page {random_page}")
                     
                     # Apply monitored filter if requested
@@ -742,13 +691,45 @@ def get_missing_episodes_random_page(api_url: str, api_key: str, api_timeout: in
                     continue
                 return []
                 
-        except requests.exceptions.RequestException as e:
-            sonarr_logger.error(f"Error getting missing episodes from Sonarr (attempt {attempt+1}): {str(e)}")
-            if attempt < retries:
-                time.sleep(retry_delay)
-                continue
-            return []
+            # Select a random page
+            random_page = random.randint(1, total_pages)
+            sonarr_logger.info(f"Selected random page {random_page} of {total_pages} for missing episodes")
             
+            # Get episodes from the random page
+            params = {
+                "page": random_page,
+                "pageSize": page_size,
+                "includeSeries": "true"
+            }
+            if series_id is not None:
+                params["seriesId"] = series_id
+
+            response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
+            if not response or "records" not in response:
+                sonarr_logger.warning(f"Empty or invalid response when getting missing episodes page {random_page}")
+                return []
+            records = response.get('records', [])
+            sonarr_logger.info(f"Retrieved {len(records)} missing episodes from page {random_page}")
+            
+            # Apply monitored filter if requested
+            if monitored_only:
+                filtered_records = [
+                    ep for ep in records
+                    if ep.get('series', {}).get('monitored', False) and ep.get('monitored', False)
+                ]
+                sonarr_logger.debug(f"Filtered to {len(filtered_records)} monitored missing episodes")
+                records = filtered_records
+            
+            # Select random episodes from this page
+            if len(records) > count:
+                selected_records = random.sample(records, count)
+                sonarr_logger.debug(f"Randomly selected {len(selected_records)} missing episodes from page {random_page}")
+                return selected_records
+            else:
+                # If we have fewer episodes than requested, return all of them
+                sonarr_logger.debug(f"Returning all {len(records)} missing episodes from page {random_page} (fewer than requested {count})")
+                return records
+                
         except Exception as e:
             sonarr_logger.error(f"Unexpected error getting missing episodes (attempt {attempt+1}): {str(e)}", exc_info=True)
             if attempt < retries:
@@ -777,16 +758,27 @@ def search_episode(api_url: str, api_key: str, api_timeout: int, episode_ids: Li
         # Continue with request if cap check fails - safer than skipping
     
     try:
-        endpoint = f"{api_url}/api/v3/command"
         payload = {
             "name": "EpisodeSearch",
             "episodeIds": episode_ids
         }
-        response = requests.post(endpoint, headers={"X-Api-Key": api_key}, json=payload, timeout=api_timeout)
-        response.raise_for_status()
-        command_id = response.json().get('id')
-        sonarr_logger.info(f"Triggered Sonarr search for episode IDs: {episode_ids}. Command ID: {command_id}")
-        
+
+        response = arr_request(
+            api_url,
+            api_key,
+            api_timeout,
+            "command",
+            method="POST",
+            data=payload
+        )
+        if response and isinstance(response, dict):
+            command_id = response.get('id')
+            sonarr_logger.info(f"Triggered Sonarr search for episode IDs: {episode_ids}. Command ID: {command_id}")
+            return command_id
+        else:
+            sonarr_logger.error(f"Unexpected response from Sonarr when triggering episode search: {response}")
+            return None
+
         # Increment API counter after successful request
         try:
             from src.primary.stats_manager import increment_hourly_cap
@@ -799,6 +791,7 @@ def search_episode(api_url: str, api_key: str, api_timeout: int, episode_ids: Li
     except requests.exceptions.RequestException as e:
         sonarr_logger.error(f"Error triggering Sonarr search for episode IDs {episode_ids}: {e}")
         return None
+
     except Exception as e:
         sonarr_logger.error(f"An unexpected error occurred while triggering Sonarr search: {e}")
         return None
@@ -806,15 +799,19 @@ def search_episode(api_url: str, api_key: str, api_timeout: int, episode_ids: Li
 def get_command_status(api_url: str, api_key: str, api_timeout: int, command_id: Union[int, str]) -> Optional[Dict[str, Any]]:
     """Get the status of a Sonarr command."""
     try:
-        endpoint = f"{api_url}/api/v3/command/{command_id}"
-        response = requests.get(endpoint, headers={"X-Api-Key": api_key}, timeout=api_timeout)
-        response.raise_for_status()
-        status = response.json()
-        sonarr_logger.debug(f"Checked Sonarr command status for ID {command_id}: {status.get('status')}")
-        return status
-    except requests.exceptions.RequestException as e:
-        sonarr_logger.error(f"Error getting Sonarr command status for ID {command_id}: {e}")
-        return None
+        response = arr_request(
+            api_url,
+            api_key,
+            api_timeout,
+            f"command/{command_id}",
+            method="GET"
+        )
+        if response and isinstance(response, dict):
+            sonarr_logger.debug(f"Checked Sonarr command status for ID {command_id}: {response.get('status')}")
+            return response
+        else:
+            sonarr_logger.error(f"Unexpected response from Sonarr when getting command status: {response}")
+            return None
     except Exception as e:
         sonarr_logger.error(f"An unexpected error occurred while getting Sonarr command status: {e}")
         return None
@@ -826,11 +823,14 @@ def get_download_queue_size(api_url: str, api_key: str, api_timeout: int) -> int
     
     for attempt in range(retries + 1):
         try:
-            endpoint = f"{api_url}/api/v3/queue?page=1&pageSize=1" # Just get total count, don't need records
-            response = requests.get(endpoint, headers={"X-Api-Key": api_key}, params={"includeSeries": "false"}, timeout=api_timeout)
-            response.raise_for_status()
-            
-            if not response.content:
+            # Use arr_request to get queue info (page=1, pageSize=1 for just the count)
+            params = {
+                'page': '1',
+                'pageSize': '1',
+                'includeSeries': 'false'
+            }
+            response = arr_request(api_url, api_key, api_timeout, "queue", params=params)
+            if not response:
                 sonarr_logger.warning(f"Empty response when getting queue size (attempt {attempt+1}/{retries+1})")
                 if attempt < retries:
                     time.sleep(retry_delay)
@@ -838,7 +838,7 @@ def get_download_queue_size(api_url: str, api_key: str, api_timeout: int) -> int
                 return -1
                 
             try:
-                queue_data = response.json()
+                queue_data = response
                 queue_size = queue_data.get('totalRecords', 0)
                 sonarr_logger.debug(f"Sonarr download queue size: {queue_size}")
                 return queue_size
@@ -878,15 +878,19 @@ def refresh_series(api_url: str, api_key: str, api_timeout: int, series_id: int)
 def get_series_by_id(api_url: str, api_key: str, api_timeout: int, series_id: int) -> Optional[Dict[str, Any]]:
     """Get series details by ID from Sonarr."""
     try:
-        endpoint = f"{api_url}/api/v3/series/{series_id}"
-        response = requests.get(endpoint, headers={"X-Api-Key": api_key}, timeout=api_timeout)
-        response.raise_for_status()
-        series_data = response.json()
-        sonarr_logger.debug(f"Fetched details for Sonarr series ID: {series_id}")
-        return series_data
-    except requests.exceptions.RequestException as e:
-        sonarr_logger.error(f"Error getting Sonarr series details for ID {series_id}: {e}")
-        return None
+        response = arr_request(
+            api_url,
+            api_key,
+            api_timeout,
+            f"series/{series_id}",
+            method="GET"
+        )
+        if response and isinstance(response, dict):
+            sonarr_logger.debug(f"Fetched details for Sonarr series ID: {series_id}")
+            return response
+        else:
+            sonarr_logger.error(f"Unexpected response from Sonarr when getting series details: {response}")
+            return None
     except Exception as e:
         sonarr_logger.error(f"An unexpected error occurred while getting Sonarr series details: {e}")
         return None
@@ -905,30 +909,26 @@ def search_season(api_url: str, api_key: str, api_timeout: int, series_id: int, 
         # Continue with request if cap check fails - safer than skipping
     
     try:
-        endpoint = f"{api_url}/api/v3/command"
         payload = {
             "name": "SeasonSearch",
             "seriesId": series_id,
             "seasonNumber": season_number
         }
-        response = requests.post(endpoint, headers={"X-Api-Key": api_key}, json=payload, timeout=api_timeout)
-        response.raise_for_status()
-        command_id = response.json().get('id')
-        sonarr_logger.info(f"Triggered Sonarr season search for series ID: {series_id}, season: {season_number}. Command ID: {command_id}")
-        
-        # CRITICAL FIX: Track the API call in hourly cap counter
-        # This was missing and causing API counter to be inaccurate for season packs
-        try:
-            from src.primary.stats_manager import increment_hourly_cap
-            increment_hourly_cap("sonarr", 1)
-            sonarr_logger.debug(f"Incremented Sonarr hourly API cap for season search (series: {series_id}, season: {season_number})")
-        except Exception as cap_error:
-            sonarr_logger.error(f"Failed to increment hourly API cap for season search: {cap_error}")
-        
-        return command_id
-    except requests.exceptions.RequestException as e:
-        sonarr_logger.error(f"Error triggering Sonarr season search for series ID {series_id}, season {season_number}: {e}")
-        return None
+        response = arr_request(
+            api_url,
+            api_key,
+            api_timeout,
+            "command",
+            method="POST",
+            data=payload
+        )
+        if response and isinstance(response, dict):
+            command_id = response.get('id')
+            sonarr_logger.info(f"Triggered Sonarr season search for series ID: {series_id}, season: {season_number}. Command ID: {command_id}")
+            return command_id
+        else:
+            sonarr_logger.error(f"Unexpected response from Sonarr when triggering season search: {response}")
+            return None
     except Exception as e:
         sonarr_logger.error(f"An unexpected error occurred while triggering Sonarr season search: {e}")
         return None
@@ -973,11 +973,10 @@ def get_cutoff_unmet_episodes_for_series(api_url: str, api_key: str, api_timeout
                 "seriesId": series_id,  # Filter by series ID - this limits results to only this series
                 "monitored": monitored_only
             }
-            url = f"{api_url}/api/v3/{endpoint}"
             sonarr_logger.debug(f"Requesting cutoff unmet page {page} for series {series_id} (attempt {retry_count+1}/{retries_per_page+1})")
             
             try:
-                response = requests.get(url, headers={"X-Api-Key": api_key}, params=params, timeout=api_timeout)
+                response = arr_request(api_url, api_key, api_timeout, endpoint, params=params)
                 sonarr_logger.debug(f"Sonarr API response status code for cutoff unmet page {page}: {response.status_code}")
                 response.raise_for_status() # Check for HTTP errors
                 
@@ -1103,7 +1102,6 @@ def get_series_with_missing_episodes(api_url: str, api_key: str, api_timeout: in
         
     # Apply random selection if requested
     if random_mode:
-        import random
         sonarr_logger.info(f"Using RANDOM selection mode for missing episodes")
         random.shuffle(filtered_series)
     else:
@@ -1124,15 +1122,10 @@ def get_series_with_missing_episodes(api_url: str, api_key: str, api_timeout: in
             
         # Get all episodes for this series
         try:
-            endpoint = f"{api_url}/api/v3/episode?seriesId={series_id}"
-            response = requests.get(endpoint, headers={"X-Api-Key": api_key}, timeout=api_timeout)
-            response.raise_for_status()
-            
-            if not response.content:
+            endpoint = f"episode?seriesId={series_id}"
+            episodes = arr_request(api_url, api_key, api_timeout, endpoint)
+            if not episodes:
                 continue
-                
-            episodes = response.json()
-            
             # Filter to missing episodes
             missing_episodes = [
                 e for e in episodes 

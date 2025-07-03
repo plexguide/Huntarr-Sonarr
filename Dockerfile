@@ -25,6 +25,7 @@ RUN mkdir -p /config && chmod -R 755 /config
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV TZ=UTC
+ENV LOG_LEVEL=INFO
 # ENV APP_TYPE=sonarr # APP_TYPE is likely managed via config now, remove if not needed
 
 # Expose port

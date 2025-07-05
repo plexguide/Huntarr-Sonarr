@@ -62,6 +62,7 @@
                             <li><a href="#debug-mode">Debug Mode</a></li>
                             <li><a href="#display-resources">Display Resources</a></li>
                             <li><a href="#low-usage-mode">Low Usage Mode</a></li>
+                            <li><a href="#log-level">Log Level Configuration</a></li>
                         </ul>
                     </li>
                     <li><a href="#notifications">Notifications</a>
@@ -172,6 +173,27 @@
                 </ul>
                 
                 <p>The setting takes effect immediately and doesn't require a restart. You can toggle it on and off as needed depending on your current usage requirements.</p>
+                
+                <h3 id="log-level"><a href="#log-level" class="info-icon"><i class="fas fa-info-circle"></i></a> Log Level Configuration</h3>
+                <p>Controls the verbosity of Huntarr's logging output through the LOG_LEVEL environment variable.</p>
+                
+                <p>Available log levels:</p>
+                <ul>
+                    <li><strong>DEBUG:</strong> Detailed information for troubleshooting issues</li>
+                    <li><strong>INFO:</strong> General information about operations (default)</li>
+                    <li><strong>WARNING:</strong> Important warnings that don't stop operation</li>
+                    <li><strong>ERROR:</strong> Error messages for serious issues</li>
+                    <li><strong>CRITICAL:</strong> Critical errors that may stop operation</li>
+                </ul>
+                
+                <p>Set this in your Docker environment:</p>
+                <pre><code>-e LOG_LEVEL=DEBUG</code></pre>
+                
+                <p>Or in docker-compose.yml:</p>
+                <pre><code>environment:
+  - LOG_LEVEL=DEBUG</code></pre>
+                
+                <p>Changes require a container restart to take effect. Use DEBUG level for troubleshooting, then return to INFO for normal operation to reduce log verbosity.</p>
             </section>
             
             <section id="notifications">

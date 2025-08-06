@@ -32,7 +32,7 @@ def process_missing_books(
     Returns:
         True if any books were processed, False otherwise.
     """
-    readarr_logger.info("Starting missing books processing cycle for Readarr.")
+    readarr_logger.debug("Starting missing books processing cycle for Readarr.")
     processed_any = False
     
     # Reset state files if enough time has passed
@@ -51,7 +51,7 @@ def process_missing_books(
     api_timeout = get_advanced_setting("api_timeout", 120)  # Use database value
     instance_name = app_settings.get("instance_name", "Readarr Default")
     
-    readarr_logger.info(f"Using API timeout of {api_timeout} seconds for Readarr")
+    readarr_logger.debug(f"Using API timeout of {api_timeout} seconds for Readarr")
     
     monitored_only = app_settings.get("monitored_only", True)
     skip_future_releases = app_settings.get("skip_future_releases", True)
@@ -78,7 +78,7 @@ def process_missing_books(
         return False
 
     # Get missing books
-    readarr_logger.info(f"Retrieving books with missing files...")
+    readarr_logger.debug(f"Retrieving books with missing files...")
     # Use efficient random page selection instead of fetching all books
     missing_books_data = readarr_api.get_wanted_missing_books_random_page(
         api_url, api_key, api_timeout, monitored_only, hunt_missing_books * 2
@@ -91,7 +91,7 @@ def process_missing_books(
             readarr_logger.info("No missing books found.")
         return False
     
-    readarr_logger.info(f"Retrieved {len(missing_books_data)} missing books from random page selection.")
+    readarr_logger.debug(f"Retrieved {len(missing_books_data)} missing books from random page selection.")
 
     # Check for stop signal after retrieving books
     if stop_check():

@@ -65,9 +65,6 @@ class LocalTimeFormatter(logging.Formatter):
                 # Use timezone-aware format
                 s = ct.strftime("%Y-%m-%d %H:%M:%S")
                 
-            # Add timezone information for clarity
-            timezone_name = str(user_tz)
-            s += f" {timezone_name}"
             
             return s
         except Exception:
@@ -78,10 +75,6 @@ class LocalTimeFormatter(logging.Formatter):
             else:
                 s = time.strftime("%Y-%m-%d %H:%M:%S", ct)
                 
-            # Add timezone information to help identify which timezone logs are in
-            tz_name = time.tzname[time.daylight] if time.daylight else time.tzname[0]
-            if tz_name:
-                s += f" {tz_name}"
                 
             return s
 

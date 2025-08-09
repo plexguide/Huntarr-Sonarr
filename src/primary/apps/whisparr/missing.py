@@ -35,7 +35,7 @@ def process_missing_items(
     Returns:
         True if any items were processed, False otherwise.
     """
-    whisparr_logger.info("Starting missing items processing cycle for Whisparr.")
+    whisparr_logger.debug("Starting missing items processing cycle for Whisparr.")
     processed_any = False
     
     # Reset state files if enough time has passed
@@ -79,7 +79,7 @@ def process_missing_items(
         return False
     
     # Get missing items
-    whisparr_logger.info(f"Retrieving items with missing files...")
+    whisparr_logger.debug(f"Retrieving items with missing files...")
     missing_items = whisparr_api.get_items_with_missing(api_url, api_key, api_timeout, monitored_only) 
     
     if missing_items is None: # API call failed
@@ -95,7 +95,7 @@ def process_missing_items(
         whisparr_logger.info("Stop requested after retrieving missing items. Aborting...")
         return False
     
-    whisparr_logger.info(f"Found {len(missing_items)} items with missing files.")
+    whisparr_logger.debug(f"Found {len(missing_items)} items with missing files.")
     
     # Filter out future releases if configured
     if skip_future_releases:

@@ -78,7 +78,7 @@ def update_sleep_json(app_type: str, next_cycle_time: datetime.datetime, cyclelo
             last_cycle_end=current_data.get('last_cycle_end')
         )
         
-        logger.info(f"Updated sleep data for {app_type}: next_cycle={next_cycle_time.isoformat()}, cyclelock={cyclelock}")
+        logger.debug(f"Updated sleep data for {app_type}: next_cycle={next_cycle_time.isoformat()}, cyclelock={cyclelock}")
         
     except Exception as e:
         logger.error(f"Error updating sleep data for {app_type}: {e}")
@@ -190,7 +190,7 @@ def end_cycle(app_type: str, next_cycle_time: datetime.datetime) -> None:
         next_cycle_time: When the next cycle will begin
     """
     try:
-        logger.info(f"Ending cycle for {app_type}, next cycle at {next_cycle_time.isoformat()}")
+        logger.debug(f"Ending cycle for {app_type}, next cycle at {next_cycle_time.isoformat()}")
         
         db = get_database()
         current_data = db.get_sleep_data(app_type)
@@ -216,7 +216,7 @@ def end_cycle(app_type: str, next_cycle_time: datetime.datetime) -> None:
             last_cycle_end=now_user_tz.isoformat()
         )
         
-        logger.info(f"Ended cycle for {app_type} (cyclelock = False)")
+        logger.debug(f"Ended cycle for {app_type} (cyclelock = False)")
     except Exception as e:
         logger.error(f"Error ending cycle for {app_type}: {e}")
 

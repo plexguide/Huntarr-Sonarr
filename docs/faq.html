@@ -105,6 +105,7 @@
   -p 9705:9705 \
   -v /path/to/huntarr/config:/config \
   -e TZ=America/New_York \
+  -e LOG_LEVEL=INFO \
   huntarr/huntarr:latest</code></pre>
 
                         <div class="alert alert-warning">
@@ -325,11 +326,33 @@ services:
       - ./huntarr-config:/config
     environment:
       - TZ=America/New_York
+      - LOG_LEVEL=INFO
       - PUID=1000
       - PGID=1000</code></pre>
 
                         <strong>Run with:</strong>
                         <pre class="terminal"><code>docker-compose up -d</code></pre>
+                    </div>
+                </div>
+                
+                <div class="faq-item">
+                    <div class="faq-question">How do I enable debug logging for troubleshooting?</div>
+                    <div class="faq-answer">
+                        Set the LOG_LEVEL environment variable to DEBUG:
+                        
+                        <pre class="terminal"><code># For Docker run:
+docker run ... -e LOG_LEVEL=DEBUG huntarr/huntarr:latest
+
+# For docker-compose, add to environment section:
+environment:
+  - LOG_LEVEL=DEBUG
+  
+# Then restart the container:
+docker restart huntarr</code></pre>
+                        
+                        <div class="alert alert-info">
+                            <strong>Remember:</strong> Set LOG_LEVEL back to INFO after troubleshooting to reduce log verbosity.
+                        </div>
                     </div>
                 </div>
             </section>

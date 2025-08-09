@@ -14,7 +14,22 @@ import logging
 import time
 import shutil
 
-logger = logging.getLogger(__name__)
+# Import the Huntarr logger system
+from src.primary.utils.logger import get_logger
+
+# Use the main huntarr logger instead of creating a separate one
+logger = None  # Will be initialized when needed to avoid circular import
+
+def _get_logger():
+    """Get the huntarr logger, initializing it if needed to avoid circular imports"""
+    global logger
+    if logger is None:
+        try:
+            logger = get_logger("huntarr")
+        except:
+            # Fallback to standard logger if huntarr logger system isn't available
+            logger = logging.getLogger("huntarr")
+    return logger
 
 class HuntarrDatabase:
     """Database manager for all Huntarr configurations and settings"""
@@ -2725,9 +2740,9 @@ def schedule_log_cleanup():
                 logs_db = get_logs_database()
                 deleted_count = logs_db.cleanup_old_logs(days_to_keep=30, max_entries_per_app=10000)
                 if deleted_count > 0:
-                    logger.info(f"Scheduled cleanup removed {deleted_count} old log entries")
+                    _get_logger().debug(f"Scheduled cleanup removed {deleted_count} old log entries")
             except Exception as e:
-                logger.error(f"Error in scheduled log cleanup: {e}")
+                _get_logger().error(f"Error in scheduled log cleanup: {e}")
     
     # Start cleanup thread
     cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)

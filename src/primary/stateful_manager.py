@@ -10,8 +10,11 @@ import datetime
 import logging
 from typing import Dict, Any, List, Optional, Set
 
-# Create logger for stateful_manager
-stateful_logger = logging.getLogger("stateful_manager")
+# Import the Huntarr logger system
+from src.primary.utils.logger import get_logger
+
+# Create logger for stateful_manager using Huntarr logger system
+stateful_logger = get_logger("huntarr")  # Use main huntarr logger for now
 
 # Constants
 DEFAULT_HOURS = 168  # Default 7 days (168 hours)
@@ -307,7 +310,7 @@ def is_processed(app_type: str, instance_name: str, media_id: str) -> bool:
         processed_ids = db.get_processed_ids(app_type, instance_name)
         total_count = len(processed_ids)
         
-        stateful_logger.info(f"is_processed check: {app_type}/{instance_name}, ID:{media_id_str}, Found:{is_in_db}, Total IDs:{total_count}")
+        stateful_logger.debug(f"is_processed check: {app_type}/{instance_name}, ID:{media_id_str}, Found:{is_in_db}, Total IDs:{total_count}")
         
         return is_in_db
     except Exception as e:

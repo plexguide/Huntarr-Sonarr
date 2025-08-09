@@ -302,7 +302,7 @@ def app_specific_loop(app_type: str) -> None:
             hunt_upgrade_enabled = hunt_upgrade_value > 0
             
             # Debug logging for per-instance hunt values
-            app_logger.info(f"Instance '{instance_name}' - Missing: {hunt_missing_value} (enabled: {hunt_missing_enabled}), Upgrade: {hunt_upgrade_value} (enabled: {hunt_upgrade_enabled})")
+            app_logger.debug(f"Instance '{instance_name}' - Missing: {hunt_missing_value} (enabled: {hunt_missing_enabled}), Upgrade: {hunt_upgrade_value} (enabled: {hunt_upgrade_enabled})")
 
             # --- Queue Size Check --- # Moved inside loop
             # Get maximum_download_queue_size from general settings (still using minimum_download_queue_size key for backward compatibility)
@@ -422,7 +422,7 @@ def app_specific_loop(app_type: str) -> None:
         if processed_any_items:
             app_logger.info(f"=== {app_type.upper()} cycle finished. Processed items across instances. ===")
         else:
-            app_logger.info(f"=== {app_type.upper()} cycle finished. No items processed in any instance. ===")
+            app_logger.debug(f"=== {app_type.upper()} cycle finished. No items processed in any instance. ===")
             
         # Add state management summary logging for user clarity (only for hunting apps, not Swaparr)
         if app_type != "swaparr":
@@ -474,30 +474,30 @@ def app_specific_loop(app_type: str) -> None:
                 
                 # Log per-instance state management info
                 if instance_summaries:
-                    app_logger.info(f"=== STATE MANAGEMENT SUMMARY FOR {app_type.upper()} ===")
+                    app_logger.debug(f"=== STATE MANAGEMENT SUMMARY FOR {app_type.upper()} ===")
                     
                     for inst in instance_summaries:
                         if inst["enabled"]:
                             if inst["processed_count"] > 0:
-                                app_logger.info(f"  {inst['name']}: {inst['processed_count']} items tracked, next reset: {inst['next_reset_time']} ({inst['hours']}h interval)")
+                                app_logger.debug(f"  {inst['name']}: {inst['processed_count']} items tracked, next reset: {inst['next_reset_time']} ({inst['hours']}h interval)")
                             else:
-                                app_logger.info(f"  {inst['name']}: No items tracked yet, next reset: {inst['next_reset_time']} ({inst['hours']}h interval)")
+                                app_logger.debug(f"  {inst['name']}: No items tracked yet, next reset: {inst['next_reset_time']} ({inst['hours']}h interval)")
                         else:
-                            app_logger.info(f"  {inst['name']}: State management disabled")
+                            app_logger.debug(f"  {inst['name']}: State management disabled")
                     
                     # Overall summary
                     if not processed_any_items and has_any_processed:
                         # Items were skipped due to state management
-                        app_logger.info(f"RESULT: {total_processed} items skipped due to state management (already processed)")
+                        app_logger.debug(f"RESULT: {total_processed} items skipped due to state management (already processed)")
                     elif processed_any_items:
                         # Items were processed, show summary
-                        app_logger.info(f"RESULT: Items processed successfully. Total tracked across instances: {total_processed}")
+                        app_logger.debug(f"RESULT: Items processed successfully. Total tracked across instances: {total_processed}")
                     else:
                         # No items processed and no state management blocking
                         if total_processed > 0:
-                            app_logger.info(f"RESULT: No new items found. Total tracked across instances: {total_processed}")
+                            app_logger.debug(f"RESULT: No new items found. Total tracked across instances: {total_processed}")
                         else:
-                            app_logger.info(f"RESULT: No items to process and no items tracked yet")
+                            app_logger.debug(f"RESULT: No items to process and no items tracked yet")
                     
             except Exception as e:
                 app_logger.warning(f"Could not generate state management summary: {e}")
@@ -522,8 +522,8 @@ def app_specific_loop(app_type: str) -> None:
         next_cycle_time = now_user_tz + datetime.timedelta(seconds=sleep_seconds)
         
         app_logger.debug(f"Current time ({user_tz}): {now_user_tz.strftime('%Y-%m-%d %H:%M:%S')}")
-        app_logger.info(f"Next cycle will begin at {next_cycle_time.strftime('%Y-%m-%d %H:%M:%S')} ({user_tz})")
-        app_logger.info(f"Sleep duration: {sleep_seconds} seconds")
+        app_logger.debug(f"Next cycle will begin at {next_cycle_time.strftime('%Y-%m-%d %H:%M:%S')} ({user_tz})")
+        app_logger.debug(f"Sleep duration: {sleep_seconds} seconds")
         
         # Update cycle tracking with user timezone time
         next_cycle_naive = next_cycle_time.replace(tzinfo=None) if next_cycle_time.tzinfo else next_cycle_time
@@ -812,8 +812,8 @@ def swaparr_app_loop():
                 
                 # Sleep duration and next cycle info (like other apps)
                 swaparr_logger.debug(f"Current time ({user_tz}): {now_user_tz.strftime('%Y-%m-%d %H:%M:%S')}")
-                swaparr_logger.info(f"Next cycle will begin at {next_cycle_time.strftime('%Y-%m-%d %H:%M:%S')} ({user_tz})")
-                swaparr_logger.info(f"Sleep duration: {sleep_duration} seconds")
+                swaparr_logger.debug(f"Next cycle will begin at {next_cycle_time.strftime('%Y-%m-%d %H:%M:%S')} ({user_tz})")
+                swaparr_logger.debug(f"Sleep duration: {sleep_duration} seconds")
                 
                 # Sleep with responsiveness to stop events and reset requests (like other apps)
                 elapsed = 0

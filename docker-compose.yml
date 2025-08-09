@@ -11,6 +11,7 @@ services:
     environment:
       - TZ=${TZ:-UTC}
       - BASE_URL=${BASE_URL:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     restart: unless-stopped
     # Graceful shutdown configuration
     stop_signal: SIGTERM

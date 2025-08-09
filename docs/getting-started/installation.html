@@ -92,6 +92,7 @@
   -p 9705:9705 \
   -v /your-path/huntarr:/config \
   -e TZ=America/New_York \
+  -e LOG_LEVEL=INFO \
   huntarr/huntarr:latest</code></pre>
 
                     <h5><i class="fab fa-github" style="margin-right: 8px; color: #333;"></i>Option 2: GitHub Container Registry</h5>
@@ -100,6 +101,7 @@
   -p 9705:9705 \
   -v /your-path/huntarr:/config \
   -e TZ=America/New_York \
+  -e LOG_LEVEL=INFO \
   ghcr.io/plexguide/huntarr:latest</code></pre>
                     
                     <p>To check on the status of the program:</p>
@@ -119,7 +121,8 @@
     volumes:
       - /your-path/huntarr:/config
     environment:
-      - TZ=America/New_York</code></pre>
+      - TZ=America/New_York
+      - LOG_LEVEL=INFO</code></pre>
 
                     <h5><i class="fab fa-github" style="margin-right: 8px; color: #333;"></i>Option 2: GitHub Container Registry</h5>
                     <pre class="terminal"><code>services:
@@ -132,7 +135,8 @@
     volumes:
       - /your-path/huntarr:/config
     environment:
-      - TZ=America/New_York</code></pre>
+      - TZ=America/New_York
+      - LOG_LEVEL=INFO</code></pre>
                     
                     <p>Then run:</p>
                     <pre class="terminal"><code class="command-prompt">docker-compose up -d huntarr</code></pre>
@@ -182,6 +186,7 @@
   -p 9705:9705 \
   -v /mnt/user/appdata/huntarr:/config \
   -e TZ=America/New_York \
+  -e LOG_LEVEL=INFO \
   huntarr/huntarr:latest</code></pre>
 
                     <h5><i class="fab fa-github" style="margin-right: 8px; color: #333;"></i>GitHub Container Registry</h5>
@@ -190,6 +195,7 @@
   -p 9705:9705 \
   -v /mnt/user/appdata/huntarr:/config \
   -e TZ=America/New_York \
+  -e LOG_LEVEL=INFO \
   ghcr.io/plexguide/huntarr:latest</code></pre>
                 </div>
                 

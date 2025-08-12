@@ -6,6 +6,6 @@ qrcode[pil]==7.4.2 # Added qrcode with PIL support
 pyotp==2.9.0       # Added pyotp
 pytz==2023.3       # Added for timezone support
 pywin32==308; sys_platform == 'win32' # For Windows service support
-apprise==1.6.0     # Added for notification support
+apprise==1.9.4     # Added for notification support
 markdown==3.4.3    # Required by apprise
 pyyaml==6.0         # Required by apprise

@@ -45,7 +45,7 @@ If Huntarr has been helpful to you and you appreciate the power of open-source s
 - [How It Works](#how-it-works)
 - [Thank You](#thank-you)
 - [Screenshots](#screenshots)
-- [The Perfect Pair: Huntarr & Cleanuperr](#the-perfect-pair-huntarr--cleanuperr)
+- [The Perfect Pair: Huntarr & Cleanuparr](#the-perfect-pair-huntarr--cleanuparr)
 - [Change Log](#change-log)
 
 ## ℹ️ Overview
@@ -131,25 +131,25 @@ A big thank you to these amazing contributors who've helped build and maintain t
 
 ---
 
-## 🤝 The Perfect Pair: Huntarr & Cleanuperr
+## 🤝 The Perfect Pair: Huntarr & Cleanuparr
 
 <p align="center">
   <img src="https://github.com/plexguide/Huntarr.io/blob/main/frontend/static/logo/128.png?raw=true" alt="Huntarr" width="64" height="64">
   <span style="font-size: 32px; margin: 0 15px;">+</span>
-  <img src="https://github.com/flmorg/cleanuperr/blob/main/Logo/128.png?raw=true" alt="Cleanuperr" width="64" height="64">
+  <img src="https://github.com/cleanuparr/cleanuparr/blob/main/Logo/128.png?raw=true" alt="Cleanuparr" width="64" height="64">
 </p>
 
 **Huntarr** is the compulsive librarian who finds missing media and upgrades your existing content. It fills in the blanks and improves what you already have.
 
-**Cleanuperr** ([![GitHub stars](https://img.shields.io/github/stars/flmorg/cleanuperr?style=social)](https://github.com/flmorg/cleanuperr/stargazers)) is the janitor of your server; it keeps your download queue spotless, removes clutter, and blocks malicious files.
+**Cleanuparr** ([![GitHub stars](https://img.shields.io/github/stars/cleanuparr/cleanuparr?style=social)](https://github.com/cleanuparr/cleanuparr/stargazers)) is the janitor of your server; it keeps your download queue spotless, removes clutter, and blocks malicious files.
 
 When combined, these tools create a powerful, self-sufficient media automation stack:
 
 - **Huntarr** hunts for content to add to your library
-- **Cleanuperr** ensures only clean downloads get through
+- **Cleanuparr** ensures only clean downloads get through
 - Together, they create a reliable, hands-off media management system
 
-Learn more about **Cleanuperr** at [https://github.com/flmorg/cleanuperr](https://github.com/flmorg/cleanuperr)
+Learn more about **Cleanuparr** at [https://github.com/cleanuparr/cleanuparr](https://github.com/cleanuparr/cleanuparr)
 
 ## 📜 Change Log
 Visit: https://github.com/plexguide/Huntarr.io/releases/

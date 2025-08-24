@@ -101,7 +101,7 @@ def process_missing_movies(
     tag_processed_items = radarr_settings.get("tag_processed_items", True)
     
     # Log important settings
-    radarr_logger.info("=== Radarr Missing Movies Settings ===")
+    radarr_logger.debug("=== Radarr Missing Movies Settings ===")
     radarr_logger.debug(f"Instance Name: {instance_name}")
     
     # Extract necessary settings
@@ -136,7 +136,7 @@ def process_missing_movies(
         return False
     
     # Get missing movies 
-    radarr_logger.info("Retrieving movies with missing files...")
+    radarr_logger.debug("Retrieving movies with missing files...")
     # Use efficient random page selection instead of fetching all movies
     missing_movies = radarr_api.get_movies_with_missing_random_page(
         api_url, api_key, api_timeout, monitored_only, hunt_missing_movies * 2
@@ -150,11 +150,11 @@ def process_missing_movies(
         radarr_logger.info("No missing movies found.")
         return False
     
-    radarr_logger.info(f"Retrieved {len(missing_movies)} missing movies from random page selection.")
+    radarr_logger.debug(f"Retrieved {len(missing_movies)} missing movies from random page selection.")
     
     # Skip future releases if enabled
     if skip_future_releases:
-        radarr_logger.info("Filtering out future releases...")
+        radarr_logger.debug("Filtering out future releases...")
         now = datetime.datetime.now(datetime.timezone.utc)
         
         filtered_movies = []
@@ -195,11 +195,11 @@ def process_missing_movies(
                     radarr_logger.debug(f"Skipping movie ID {movie_id} ('{movie_title}') - no releaseDate field and process_no_release_dates is disabled")
                     no_date_count += 1
         
-        radarr_logger.info(f"Filtered out {skipped_count} future releases and {no_date_count} movies with no release dates")
+        radarr_logger.debug(f"Filtered out {skipped_count} future releases and {no_date_count} movies with no release dates")
         radarr_logger.debug(f"After filtering: {len(filtered_movies)} movies remaining from {len(missing_movies)} original")
         missing_movies = filtered_movies
     else:
-        radarr_logger.info("Skip future releases is disabled - processing all movies regardless of release date")
+        radarr_logger.debug("Skip future releases is disabled - processing all movies regardless of release date")
 
     # Apply release date delay if configured
     release_date_delay_days = app_settings.get("release_date_delay_days", 0)
@@ -225,7 +225,7 @@ def process_missing_movies(
             radarr_logger.info(f"Delayed {delayed_count} movies due to {release_date_delay_days}-day release date delay setting.")
     
     if not missing_movies:
-        radarr_logger.info("No missing movies left to process after filtering future releases.")
+        radarr_logger.debug("No missing movies left to process after filtering future releases.")
         return False
         
     movies_processed = 0
@@ -240,20 +240,20 @@ def process_missing_movies(
         else:
             radarr_logger.debug(f"Skipping already processed movie ID: {movie_id}")
     
-    radarr_logger.info(f"Found {len(unprocessed_movies)} unprocessed missing movies out of {len(missing_movies)} total.")
+    radarr_logger.debug(f"Found {len(unprocessed_movies)} unprocessed missing movies out of {len(missing_movies)} total.")
     
     if not unprocessed_movies:
-        radarr_logger.info("No unprocessed missing movies found. All available movies have been processed.")
+        radarr_logger.debug("No unprocessed missing movies found. All available movies have been processed.")
         return False
     
     # Always use random selection for missing movies
-    radarr_logger.info(f"Using random selection for missing movies")
+    radarr_logger.debug(f"Using random selection for missing movies")
     if len(unprocessed_movies) > hunt_missing_movies:
         movies_to_process = random.sample(unprocessed_movies, hunt_missing_movies)
     else:
         movies_to_process = unprocessed_movies
     
-    radarr_logger.info(f"Selected {len(movies_to_process)} movies to process.")
+    radarr_logger.debug(f"Selected {len(movies_to_process)} movies to process.")
     
     # Add detailed logging for selected movies
     if movies_to_process:

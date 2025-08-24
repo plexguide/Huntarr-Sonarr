@@ -75,12 +75,12 @@ def process_missing_episodes(
         sonarr_logger.info("'hunt_missing_items' setting is 0 or less. Skipping missing processing.")
         return False
         
-    sonarr_logger.info(f"Checking for {hunt_missing_items} missing episodes in {hunt_missing_mode} mode for instance '{instance_name}'...")
+    sonarr_logger.debug(f"Checking for {hunt_missing_items} missing episodes in {hunt_missing_mode} mode for instance '{instance_name}'...")
 
     # Handle different modes
     if hunt_missing_mode == "seasons_packs":
         # Handle season pack searches (using SeasonSearch command)
-        sonarr_logger.info("Season [Packs] mode selected - searching for complete season packs")
+        sonarr_logger.debug("Season [Packs] mode selected - searching for complete season packs")
         return process_missing_seasons_packs_mode(
             api_url, api_key, instance_name, api_timeout, monitored_only, 
             skip_future_episodes, hunt_missing_items, air_date_delay_days,
@@ -88,7 +88,7 @@ def process_missing_episodes(
         )
     elif hunt_missing_mode == "shows":
         # Handle show-based missing items (all episodes from a show)
-        sonarr_logger.info("Show-based missing mode selected")
+        sonarr_logger.debug("Show-based missing mode selected")
         return process_missing_shows_mode(
             api_url, api_key, instance_name, api_timeout, monitored_only, 
             skip_future_episodes, hunt_missing_items, air_date_delay_days,
@@ -138,7 +138,7 @@ def process_missing_seasons_packs_mode(
         sonarr_logger.info("No missing episodes found")
         return False
     
-    sonarr_logger.info(f"Retrieved {len(missing_episodes)} missing episodes from random page selection.")
+    sonarr_logger.debug(f"Retrieved {len(missing_episodes)} missing episodes from random page selection.")
 
     # Filter out future episodes if configured
     if skip_future_episodes:
@@ -226,7 +226,7 @@ def process_missing_seasons_packs_mode(
         else:
             sonarr_logger.debug(f"Skipping already processed season ID: {season_id}")
     
-    sonarr_logger.info(f"Found {len(unprocessed_seasons)} unprocessed seasons with missing episodes out of {len(seasons_list)} total.")
+    sonarr_logger.debug(f"Found {len(unprocessed_seasons)} unprocessed seasons with missing episodes out of {len(seasons_list)} total.")
     
     if not unprocessed_seasons:
         sonarr_logger.info("All seasons with missing episodes have been processed.")
@@ -238,10 +238,10 @@ def process_missing_seasons_packs_mode(
     # Process up to hunt_missing_items seasons
     processed_count = 0
     
-    # Add detailed logging for selected seasons
+    # Add user-friendly logging for selected seasons
     if unprocessed_seasons and hunt_missing_items > 0:
         seasons_to_process = unprocessed_seasons[:hunt_missing_items]
-        sonarr_logger.info(f"Randomly selected {min(len(unprocessed_seasons), hunt_missing_items)} seasons with missing episodes:")
+        sonarr_logger.info(f"Seasons selected for processing in this cycle ({min(len(unprocessed_seasons), hunt_missing_items)} of {len(unprocessed_seasons)} available):")
         
         for idx, season in enumerate(seasons_to_process):
             sonarr_logger.info(f"  {idx+1}. {season['series_title']} - Season {season['season_number']} ({season['episode_count']} missing episodes) (Series ID: {season['series_id']})")
@@ -270,7 +270,7 @@ def process_missing_seasons_packs_mode(
         
         # Refresh functionality has been removed as it was identified as a performance bottleneck
         
-        sonarr_logger.info(f"Searching for season pack: {series_title} - Season {season_number} (contains {episode_count} missing episodes)")
+        sonarr_logger.debug(f"Searching for season pack: {series_title} - Season {season_number} (contains {episode_count} missing episodes)")
         
         # Trigger an API call to search for the entire season
         command_id = sonarr_api.search_season(api_url, api_key, api_timeout, series_id, season_number)
@@ -315,7 +315,7 @@ def process_missing_seasons_packs_mode(
         else:
             sonarr_logger.error(f"Failed to trigger search for {series_title}.")
     
-    sonarr_logger.info(f"Processed {processed_count} missing season packs for Sonarr.")
+    sonarr_logger.info(f"Finished processing missing episodes. Processed {processed_count} season packs.")
     return processed_any
 
 def process_missing_shows_mode(
@@ -339,7 +339,7 @@ def process_missing_shows_mode(
     tag_processed_items = sonarr_settings.get("tag_processed_items", True)
     
     # Get series with missing episodes
-    sonarr_logger.info("Retrieving series with missing episodes...")
+    sonarr_logger.debug("Retrieving series with missing episodes...")
     series_with_missing = sonarr_api.get_series_with_missing_episodes(
         api_url, api_key, api_timeout, monitored_only, random_mode=True)
     
@@ -356,7 +356,7 @@ def process_missing_shows_mode(
         else:
             sonarr_logger.debug(f"Skipping already processed series ID: {series_id}")
     
-    sonarr_logger.info(f"Found {len(unprocessed_series)} unprocessed series with missing episodes out of {len(series_with_missing)} total.")
+    sonarr_logger.debug(f"Found {len(unprocessed_series)} unprocessed series with missing episodes out of {len(series_with_missing)} total.")
     
     if not unprocessed_series:
         sonarr_logger.info("All series with missing episodes have been processed.")
@@ -368,9 +368,9 @@ def process_missing_shows_mode(
         min(len(unprocessed_series), hunt_missing_items)
     )
     
-    # Add detailed logging for selected shows
+    # Add user-friendly logging for selected shows
     if shows_to_process:
-        sonarr_logger.info("Shows selected for processing in this cycle:")
+        sonarr_logger.info(f"Shows selected for processing in this cycle ({len(shows_to_process)} of {len(unprocessed_series)} available):")
         for idx, show in enumerate(shows_to_process):
             show_id = show.get('series_id')
             show_title = show.get('series_title', 'Unknown Show')
@@ -610,7 +610,7 @@ def process_missing_episodes_mode(
         else:
             sonarr_logger.debug(f"Skipping already processed episode ID: {episode_id}")
     
-    sonarr_logger.info(f"Found {len(unprocessed_episodes)} unprocessed episodes out of {len(missing_episodes)} total.")
+    sonarr_logger.debug(f"Found {len(unprocessed_episodes)} unprocessed episodes out of {len(missing_episodes)} total.")
     
     if not unprocessed_episodes:
         sonarr_logger.info("All missing episodes have been processed.")
@@ -620,7 +620,7 @@ def process_missing_episodes_mode(
     random.shuffle(unprocessed_episodes)
     episodes_to_process = unprocessed_episodes[:hunt_missing_items]
     
-    sonarr_logger.info(f"Processing {len(episodes_to_process)} individual missing episodes...")
+    sonarr_logger.info(f"Episodes selected for processing in this cycle ({len(episodes_to_process)} of {len(unprocessed_episodes)} available)")
     
     # Process each episode individually
     processed_count = 0

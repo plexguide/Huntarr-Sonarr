@@ -65,9 +65,6 @@ class LocalTimeFormatter(logging.Formatter):
                 # Use timezone-aware format
                 s = ct.strftime("%Y-%m-%d %H:%M:%S")
                 
-            # Add timezone information for clarity
-            timezone_name = str(user_tz)
-            s += f" {timezone_name}"
             
             return s
         except Exception:
@@ -78,12 +75,28 @@ class LocalTimeFormatter(logging.Formatter):
             else:
                 s = time.strftime("%Y-%m-%d %H:%M:%S", ct)
                 
-            # Add timezone information to help identify which timezone logs are in
-            tz_name = time.tzname[time.daylight] if time.daylight else time.tzname[0]
-            if tz_name:
-                s += f" {tz_name}"
                 
             return s
+
+def get_log_level():
+    """Get the logging level from LOG_LEVEL environment variable with fallback to INFO."""
+    # Check LOG_LEVEL environment variable
+    log_level_str = os.environ.get('LOG_LEVEL', '').upper()
+    if log_level_str in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
+        return getattr(logging, log_level_str)
+        
+    # Default to INFO level
+    return logging.INFO
+
+def configure_root_logger():
+    """Configure root logger to respect LOG_LEVEL environment variable."""
+    root_logger = logging.getLogger()
+    log_level = get_log_level()
+    root_logger.setLevel(log_level)
+    
+    # Configure all existing handlers to use the new level
+    for handler in root_logger.handlers:
+        handler.setLevel(log_level)
 
 def setup_main_logger():
     """Set up the main Huntarr logger."""
@@ -91,8 +104,8 @@ def setup_main_logger():
     log_name = "huntarr"
     log_file = MAIN_LOG_FILE
 
-    # Always use DEBUG level - let frontend filter what users see
-    use_log_level = logging.DEBUG
+    # Get log level from environment with INFO as default
+    use_log_level = get_log_level()
 
     # Get or create the main logger instance
     current_logger = logging.getLogger(log_name)
@@ -125,6 +138,10 @@ def setup_main_logger():
     current_logger.debug("Debug logging enabled for main logger")
 
     logger = current_logger # Assign to the global variable
+    
+    # Configure root logger to ensure all loggers respect LOG_LEVEL
+    configure_root_logger()
+    
     return current_logger
 
 def get_logger(app_type: str) -> logging.Logger:
@@ -158,8 +175,8 @@ def get_logger(app_type: str) -> logging.Logger:
     # Prevent propagation to the main 'huntarr' logger or root logger
     app_logger.propagate = False
     
-    # Always use DEBUG level - let frontend filter what users see
-    log_level = logging.DEBUG
+    # Get log level from environment with INFO as default
+    log_level = get_log_level()
         
     app_logger.setLevel(log_level)
     
@@ -197,11 +214,10 @@ def get_logger(app_type: str) -> logging.Logger:
 
 def update_logging_levels():
     """
-    Update all logger levels to DEBUG level.
-    This function is kept for compatibility but now always sets DEBUG level.
+    Update all logger levels based on environment configuration.
     """
-    # Always use DEBUG level - let frontend filter what users see
-    level = logging.DEBUG
+    # Get log level from environment
+    level = get_log_level()
     
     # Set level for main logger
     if logger:

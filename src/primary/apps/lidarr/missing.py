@@ -61,7 +61,7 @@ def process_missing_albums(
     # Make sure any requested stop function is executable
     stop_check = stop_check if callable(stop_check) else lambda: False
     
-    lidarr_logger.info(f"Looking for missing albums for {instance_name}")
+    lidarr_logger.debug(f"Looking for missing albums for {instance_name}")
     lidarr_logger.debug(f"Processing up to {hunt_missing_items} missing items in {hunt_missing_mode} mode")
     
     # Reset state files if enough time has passed
@@ -80,7 +80,7 @@ def process_missing_albums(
     try:
         # Get missing albums or artists data based on the hunt_missing_mode
         if hunt_missing_mode == "album":
-            lidarr_logger.info("Retrieving missing albums for album-based processing...")
+            lidarr_logger.debug("Retrieving missing albums for album-based processing...")
             # Use efficient random page selection instead of fetching all albums
             missing_albums_data = lidarr_api.get_missing_albums_random_page(
                 api_url, api_key, api_timeout, monitored_only, total_items_to_process * 2
@@ -94,7 +94,7 @@ def process_missing_albums(
                 lidarr_logger.info("No missing albums found.")
                 return False
             
-            lidarr_logger.info(f"Retrieved {len(missing_albums_data)} missing albums from random page selection.")
+            lidarr_logger.debug(f"Retrieved {len(missing_albums_data)} missing albums from random page selection.")
             
             # Convert to the expected format for album processing - keep IDs as integers
             unprocessed_entities = []

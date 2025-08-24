@@ -13,7 +13,6 @@ import time
 from typing import Dict, Any, Optional, List
 
 # Create a simple logger for settings_manager
-logging.basicConfig(level=logging.INFO)
 settings_logger = logging.getLogger("settings_manager")
 
 # Database integration

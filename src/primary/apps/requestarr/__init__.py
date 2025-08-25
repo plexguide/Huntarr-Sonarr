@@ -323,6 +323,33 @@ class RequestarrAPI:
             else:
                 # For Sonarr, allow granular selection even for new series
                 if app_type == 'sonarr' and media_type == 'tv':
+                    # Try to get episode count from TMDB for new series
+                    try:
+                        api_key = self.get_tmdb_api_key()
+                        response = requests.get(
+                            f"{self.tmdb_base_url}/tv/{tmdb_id}",
+                            params={'api_key': api_key},
+                            timeout=5
+                        )
+                        if response.status_code == 200:
+                            series_data = response.json()
+                            total_episodes = 0
+                            for season in series_data.get('seasons', []):
+                                if season.get('season_number', 0) > 0:  # Skip specials
+                                    total_episodes += season.get('episode_count', 0)
+                            
+                            if total_episodes > 0:
+                                return {
+                                    'status': 'available_to_request_granular',
+                                    'message': f'Available to request ({total_episodes} episodes)',
+                                    'in_app': False,
+                                    'already_requested': False,
+                                    'supports_granular': True,
+                                    'total_episodes': total_episodes
+                                }
+                    except Exception as e:
+                        logger.debug(f"Could not get episode count from TMDB for new series: {e}")
+                    
                     return {
                         'status': 'available_to_request_granular',
                         'message': 'Available to request',
@@ -342,6 +369,33 @@ class RequestarrAPI:
             logger.error(f"Error checking availability in {app_type}: {e}")
             # If we can't check the app, still allow requesting
             if app_type == 'sonarr' and media_type == 'tv':
+                # Try to get episode count from TMDB even when Sonarr is unavailable
+                try:
+                    api_key = self.get_tmdb_api_key()
+                    response = requests.get(
+                        f"{self.tmdb_base_url}/tv/{tmdb_id}",
+                        params={'api_key': api_key},
+                        timeout=5
+                    )
+                    if response.status_code == 200:
+                        series_data = response.json()
+                        total_episodes = 0
+                        for season in series_data.get('seasons', []):
+                            if season.get('season_number', 0) > 0:  # Skip specials
+                                total_episodes += season.get('episode_count', 0)
+                        
+                        if total_episodes > 0:
+                            return {
+                                'status': 'available_to_request_granular',
+                                'message': f'Available to request ({total_episodes} episodes) - could not verify library',
+                                'in_app': False,
+                                'already_requested': False,
+                                'supports_granular': True,
+                                'total_episodes': total_episodes
+                            }
+                except Exception as tmdb_error:
+                    logger.debug(f"Could not get episode count from TMDB in fallback: {tmdb_error}")
+                
                 return {
                     'status': 'available_to_request_granular',
                     'message': 'Available to request (could not verify library)',

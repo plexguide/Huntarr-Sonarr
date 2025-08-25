@@ -120,5 +120,25 @@ def get_requests():
         logger.error(f"Error getting requests: {e}")
         return jsonify({'error': 'Failed to get requests'}), 500
 
+@requestarr_bp.route('/series/<int:tmdb_id>/details', methods=['GET'])
+def get_series_details(tmdb_id):
+    """Get detailed season and episode information for a TV series"""
+    try:
+        app_type = request.args.get('app_type')
+        instance_name = request.args.get('instance_name')
+        
+        if not app_type or not instance_name:
+            return jsonify({'error': 'App type and instance name are required'}), 400
+        
+        if app_type != 'sonarr':
+            return jsonify({'error': 'Series details only available for Sonarr instances'}), 400
+        
+        details = requestarr_api.get_series_details(tmdb_id, app_type, instance_name)
+        return jsonify(details)
+        
+    except Exception as e:
+        logger.error(f"Error getting series details: {e}")
+        return jsonify({'error': 'Failed to get series details'}), 500
+
 # Requestarr is always enabled with hardcoded TMDB API key
 logger.info("Requestarr initialized with hardcoded TMDB API key") 

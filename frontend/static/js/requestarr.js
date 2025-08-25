@@ -320,6 +320,15 @@ class RequestarrModule {
                     buttonClass: 'btn-disabled',
                     disabled: true
                 };
+            case 'available_to_request_granular':
+                return {
+                    icon: '📺',
+                    message: availability.message || 'Request episodes or seasons',
+                    className: 'status-granular',
+                    buttonText: 'Request',
+                    buttonClass: 'btn-primary',
+                    disabled: false
+                };
             case 'available_to_request_missing':
                 return {
                     icon: '📺',
@@ -388,60 +397,101 @@ class RequestarrModule {
                 throw new Error('Item data not found');
             }
             
-            console.log('Requesting item:', item);
-            console.log('Selected instance:', this.selectedInstance);
-            
-            button.disabled = true;
-            button.textContent = 'Requesting...';
-            
-            const requestData = {
-                tmdb_id: item.tmdb_id,
-                media_type: item.media_type,
-                title: item.title,
-                year: item.year,
-                overview: item.overview,
-                poster_path: item.poster_path,
-                backdrop_path: item.backdrop_path,
-                app_type: this.selectedInstance.appType,
-                instance_name: this.selectedInstance.instanceName
-            };
-            
-            console.log('Request data:', requestData);
-            
-            const response = await fetch('./api/requestarr/request', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            });
-            
-            const result = await response.json();
-            console.log('Request result:', result);
-            
-            if (result.success) {
-                this.showNotification(result.message, 'success');
-                button.textContent = 'Requested';
-                button.className = 'request-btn btn-disabled';
+            // Check if this is a TV show that supports granular selection
+            if (item.media_type === 'tv' && 
+                this.selectedInstance.appType === 'sonarr' && 
+                item.availability && 
+                item.availability.supports_granular) {
                 
-                // Update availability status
-                const statusElement = button.closest('.result-card').querySelector('.availability-status');
-                if (statusElement) {
-                    statusElement.className = 'availability-status status-requested';
-                    statusElement.innerHTML = '<span class="status-icon">⏳</span><span class="status-text">Requested</span>';
-                }
-                
-            } else {
-                this.showNotification(result.message || 'Request failed', 'error');
-                button.disabled = false;
-                button.textContent = 'Request';
+                // Show granular selection modal
+                await this.showGranularSelectionModal(item);
+                return;
             }
             
+            // For movies or simple requests, proceed with normal request
+            await this.performSimpleRequest(button, item);
+            
         } catch (error) {
-            console.error('Error requesting media:', error);
+            console.error('Error handling request:', error);
             this.showNotification('Request failed', 'error');
             button.disabled = false;
             button.textContent = 'Request';
+        }
+    }
+
+    async performSimpleRequest(button, item) {
+        console.log('Requesting item:', item);
+        console.log('Selected instance:', this.selectedInstance);
+        
+        button.disabled = true;
+        button.textContent = 'Requesting...';
+        
+        const requestData = {
+            tmdb_id: item.tmdb_id,
+            media_type: item.media_type,
+            title: item.title,
+            year: item.year,
+            overview: item.overview,
+            poster_path: item.poster_path,
+            backdrop_path: item.backdrop_path,
+            app_type: this.selectedInstance.appType,
+            instance_name: this.selectedInstance.instanceName
+        };
+        
+        console.log('Request data:', requestData);
+        
+        const response = await fetch('./api/requestarr/request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        const result = await response.json();
+        console.log('Request result:', result);
+        
+        if (result.success) {
+            this.showNotification(result.message, 'success');
+            button.textContent = 'Requested';
+            button.className = 'request-btn btn-disabled';
+            
+            // Update availability status
+            const statusElement = button.closest('.result-card').querySelector('.availability-status');
+            if (statusElement) {
+                statusElement.className = 'availability-status status-requested';
+                statusElement.innerHTML = '<span class="status-icon">⏳</span><span class="status-text">Requested</span>';
+            }
+            
+        } else {
+            this.showNotification(result.message || 'Request failed', 'error');
+            button.disabled = false;
+            button.textContent = 'Request';
+        }
+    }
+
+    async showGranularSelectionModal(item) {
+        try {
+            // Get detailed series information
+            const params = new URLSearchParams({
+                app_type: this.selectedInstance.appType,
+                instance_name: this.selectedInstance.instanceName
+            });
+            
+            const response = await fetch(`./api/requestarr/series/${item.tmdb_id}/details?${params}`);
+            const seriesDetails = await response.json();
+            
+            if (!seriesDetails.success) {
+                this.showNotification(seriesDetails.message || 'Failed to get series details', 'error');
+                return;
+            }
+            
+            // Create and show the modal
+            this.createGranularSelectionModal(item, seriesDetails);
+            
+        } catch (error) {
+            console.error('Error getting series details:', error);
+            this.showNotification('Failed to load series details', 'error');
         }
     }
 
@@ -452,6 +502,241 @@ class RequestarrModule {
         }
         // Clear stored item data
         this.itemData = {};
+    }
+
+    createGranularSelectionModal(item, seriesDetails) {
+        // Remove existing modal if present
+        const existingModal = document.getElementById('granular-selection-modal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        const isMobile = window.innerWidth <= 768;
+        
+        // Create modal HTML
+        const modalHTML = `
+            <div id="granular-selection-modal" class="granular-modal-overlay">
+                <div class="granular-modal">
+                    <div class="granular-modal-header">
+                        <h3>${item.title} ${item.year ? `(${item.year})` : ''}</h3>
+                        <button class="granular-modal-close">&times;</button>
+                    </div>
+                    <div class="granular-modal-content">
+                        <div class="request-options">
+                            <button class="request-option-btn" data-action="entire-series">
+                                <span class="option-icon">📺</span>
+                                <span class="option-text">Request Entire Series</span>
+                            </button>
+                        </div>
+                        <div class="seasons-container">
+                            <h4>Select Seasons & Episodes</h4>
+                            <div class="seasons-list">
+                                ${this.createSeasonsHTML(seriesDetails.seasons, isMobile)}
+                            </div>
+                        </div>
+                        <div class="granular-modal-actions">
+                            <button class="granular-cancel-btn">Cancel</button>
+                            <button class="granular-request-btn" disabled>Request Selected</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add modal to DOM
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Setup modal event listeners
+        this.setupGranularModalEvents(item, seriesDetails);
+        
+        // Show modal with animation
+        requestAnimationFrame(() => {
+            const modal = document.getElementById('granular-selection-modal');
+            modal.classList.add('show');
+        });
+    }
+    
+    createSeasonsHTML(seasons, isMobile) {
+        return seasons.map(season => {
+            const isComplete = season.downloaded_episodes >= season.total_episodes && season.total_episodes > 0;
+            const hasEpisodes = season.episodes && season.episodes.length > 0;
+            
+            return `
+                <div class="season-item ${isComplete ? 'season-complete' : ''}" data-season="${season.season_number}">
+                    <div class="season-header">
+                        <div class="season-checkbox-container">
+                            <input type="checkbox" 
+                                   id="season-${season.season_number}" 
+                                   class="season-checkbox"
+                                   ${isComplete ? 'disabled' : ''}
+                                   data-season="${season.season_number}">
+                            <label for="season-${season.season_number}" class="season-label">
+                                <span class="season-title">Season ${season.season_number}</span>
+                                <span class="season-stats">${season.downloaded_episodes}/${season.total_episodes} episodes</span>
+                                ${isComplete ? '<span class="complete-badge">Complete</span>' : ''}
+                            </label>
+                        </div>
+                        ${hasEpisodes && !isComplete ? `
+                            <button class="season-expand-btn" data-season="${season.season_number}">
+                                <span class="expand-icon">▼</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${hasEpisodes && !isComplete ? `
+                        <div class="episodes-container" data-season="${season.season_number}" style="display: none;">
+                            ${this.createEpisodesHTML(season.episodes, season.season_number, isMobile)}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+    
+    createEpisodesHTML(episodes, seasonNumber, isMobile) {
+        return episodes.map(episode => {
+            const isDownloaded = episode.has_file;
+            const airDate = episode.air_date ? new Date(episode.air_date).toLocaleDateString() : '';
+            
+            return `
+                <div class="episode-item ${isDownloaded ? 'episode-downloaded' : ''}" data-episode="${episode.episode_number}">
+                    <div class="episode-checkbox-container">
+                        <input type="checkbox" 
+                               id="episode-${seasonNumber}-${episode.episode_number}" 
+                               class="episode-checkbox"
+                               ${isDownloaded ? 'disabled' : ''}
+                               data-season="${seasonNumber}"
+                               data-episode="${episode.episode_number}">
+                        <label for="episode-${seasonNumber}-${episode.episode_number}" class="episode-label">
+                            <span class="episode-number">S${seasonNumber.toString().padStart(2, '0')}E${episode.episode_number.toString().padStart(2, '0')}</span>
+                            ${!isMobile && episode.title ? `<span class="episode-title">${episode.title}</span>` : ''}
+                            ${!isMobile && airDate ? `<span class="episode-date">${airDate}</span>` : ''}
+                            ${isDownloaded ? '<span class="downloaded-badge">Downloaded</span>' : ''}
+                        </label>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    setupGranularModalEvents(item, seriesDetails) {
+        const modal = document.getElementById('granular-selection-modal');
+        
+        // Close modal events
+        const closeBtn = modal.querySelector('.granular-modal-close');
+        const cancelBtn = modal.querySelector('.granular-cancel-btn');
+        const overlay = modal;
+        
+        const closeModal = () => {
+            modal.classList.remove('show');
+            setTimeout(() => modal.remove(), 300);
+        };
+        
+        closeBtn.addEventListener('click', closeModal);
+        cancelBtn.addEventListener('click', closeModal);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) closeModal();
+        });
+        
+        // Request entire series
+        const entireSeriesBtn = modal.querySelector('[data-action="entire-series"]');
+        entireSeriesBtn.addEventListener('click', async () => {
+            closeModal();
+            const cardId = `result-card-${item.tmdb_id}-${item.media_type}`;
+            const button = document.querySelector(`[data-card-id="${cardId}"] .request-btn`);
+            if (button) {
+                await this.performSimpleRequest(button, item);
+            }
+        });
+        
+        // Season expand/collapse
+        modal.querySelectorAll('.season-expand-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const seasonNum = e.target.closest('.season-expand-btn').dataset.season;
+                const episodesContainer = modal.querySelector(`.episodes-container[data-season="${seasonNum}"]`);
+                const expandIcon = e.target.closest('.season-expand-btn').querySelector('.expand-icon');
+                
+                if (episodesContainer.style.display === 'none') {
+                    episodesContainer.style.display = 'block';
+                    expandIcon.textContent = '▲';
+                } else {
+                    episodesContainer.style.display = 'none';
+                    expandIcon.textContent = '▼';
+                }
+            });
+        });
+        
+        // Season checkbox logic
+        modal.querySelectorAll('.season-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const seasonNum = e.target.dataset.season;
+                const episodeCheckboxes = modal.querySelectorAll(`.episode-checkbox[data-season="${seasonNum}"]`);
+                
+                episodeCheckboxes.forEach(episodeCheckbox => {
+                    if (!episodeCheckbox.disabled) {
+                        episodeCheckbox.checked = e.target.checked;
+                    }
+                });
+                
+                this.updateRequestButton(modal);
+            });
+        });
+        
+        // Episode checkbox logic
+        modal.querySelectorAll('.episode-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const seasonNum = e.target.dataset.season;
+                const seasonCheckbox = modal.querySelector(`.season-checkbox[data-season="${seasonNum}"]`);
+                const episodeCheckboxes = modal.querySelectorAll(`.episode-checkbox[data-season="${seasonNum}"]`);
+                const checkedEpisodes = modal.querySelectorAll(`.episode-checkbox[data-season="${seasonNum}"]:checked`);
+                
+                // Update season checkbox state
+                if (checkedEpisodes.length === 0) {
+                    seasonCheckbox.checked = false;
+                    seasonCheckbox.indeterminate = false;
+                } else if (checkedEpisodes.length === episodeCheckboxes.length) {
+                    seasonCheckbox.checked = true;
+                    seasonCheckbox.indeterminate = false;
+                } else {
+                    seasonCheckbox.checked = false;
+                    seasonCheckbox.indeterminate = true;
+                }
+                
+                this.updateRequestButton(modal);
+            });
+        });
+        
+        // Request selected button
+        const requestBtn = modal.querySelector('.granular-request-btn');
+        requestBtn.addEventListener('click', async () => {
+            await this.performGranularRequest(item, modal);
+            closeModal();
+        });
+    }
+    
+    updateRequestButton(modal) {
+        const requestBtn = modal.querySelector('.granular-request-btn');
+        const checkedEpisodes = modal.querySelectorAll('.episode-checkbox:checked');
+        
+        if (checkedEpisodes.length > 0) {
+            requestBtn.disabled = false;
+            requestBtn.textContent = `Request ${checkedEpisodes.length} Episode${checkedEpisodes.length > 1 ? 's' : ''}`;
+        } else {
+            requestBtn.disabled = true;
+            requestBtn.textContent = 'Request Selected';
+        }
+    }
+    
+    async performGranularRequest(item, modal) {
+        // This would be implemented to handle granular requests
+        // For now, show a notification that this feature is coming soon
+        this.showNotification('Granular episode selection coming soon! Using entire series request for now.', 'info');
+        
+        // Fall back to simple request for now
+        const cardId = `result-card-${item.tmdb_id}-${item.media_type}`;
+        const button = document.querySelector(`[data-card-id="${cardId}"] .request-btn`);
+        if (button) {
+            await this.performSimpleRequest(button, item);
+        }
     }
 
     showNotification(message, type = 'info') {

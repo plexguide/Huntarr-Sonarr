@@ -499,6 +499,324 @@ input:checked + .toggle-slider:before {
     }
 }
 
+/* Granular Selection Modal */
+.granular-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.granular-modal-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.granular-modal {
+    background: linear-gradient(145deg, rgba(30, 39, 56, 0.95), rgba(22, 28, 40, 0.95));
+    border: 1px solid rgba(90, 109, 137, 0.3);
+    border-radius: 15px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.granular-modal-overlay.show .granular-modal {
+    transform: scale(1);
+}
+
+.granular-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid rgba(90, 109, 137, 0.2);
+}
+
+.granular-modal-header h3 {
+    color: #fff;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.granular-modal-close {
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.granular-modal-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.granular-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+}
+
+.request-options {
+    padding: 20px 25px;
+    border-bottom: 1px solid rgba(90, 109, 137, 0.2);
+}
+
+.request-option-btn {
+    width: 100%;
+    padding: 15px 20px;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+}
+
+.request-option-btn:hover {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.option-icon {
+    font-size: 20px;
+}
+
+.seasons-container {
+    padding: 20px 25px;
+}
+
+.seasons-container h4 {
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.seasons-list {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.season-item {
+    margin-bottom: 10px;
+    border: 1px solid rgba(90, 109, 137, 0.2);
+    border-radius: 8px;
+    background: rgba(15, 23, 36, 0.3);
+    transition: all 0.2s ease;
+}
+
+.season-item:hover {
+    border-color: rgba(90, 109, 137, 0.4);
+}
+
+.season-item.season-complete {
+    opacity: 0.6;
+    background: rgba(76, 175, 80, 0.1);
+}
+
+.season-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+}
+
+.season-checkbox-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.season-checkbox,
+.episode-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: #4CAF50;
+}
+
+.season-label,
+.episode-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.season-title {
+    font-weight: 600;
+}
+
+.season-stats {
+    color: #b0b0b0;
+    font-size: 13px;
+}
+
+.complete-badge,
+.downloaded-badge {
+    background: rgba(76, 175, 80, 0.8);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.season-expand-btn {
+    background: none;
+    border: none;
+    color: #b0b0b0;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.season-expand-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.expand-icon {
+    font-size: 12px;
+    transition: transform 0.2s ease;
+}
+
+.episodes-container {
+    border-top: 1px solid rgba(90, 109, 137, 0.2);
+    background: rgba(15, 23, 36, 0.5);
+}
+
+.episode-item {
+    padding: 8px 15px;
+    border-bottom: 1px solid rgba(90, 109, 137, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+.episode-item:last-child {
+    border-bottom: none;
+}
+
+.episode-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.episode-item.episode-downloaded {
+    opacity: 0.6;
+    background: rgba(76, 175, 80, 0.05);
+}
+
+.episode-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.episode-number {
+    font-weight: 600;
+    color: #4CAF50;
+    min-width: 60px;
+}
+
+.episode-title {
+    flex: 1;
+    color: #fff;
+}
+
+.episode-date {
+    color: #b0b0b0;
+    font-size: 12px;
+}
+
+.granular-modal-actions {
+    display: flex;
+    gap: 10px;
+    padding: 20px 25px;
+    border-top: 1px solid rgba(90, 109, 137, 0.2);
+    background: rgba(15, 23, 36, 0.3);
+}
+
+.granular-cancel-btn,
+.granular-request-btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.granular-cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.granular-cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.granular-request-btn {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: #fff;
+}
+
+.granular-request-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #45a049, #3d8b40);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+}
+
+.granular-request-btn:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    cursor: not-allowed;
+}
+
+/* Status styles for granular */
+.status-granular {
+    background: rgba(33, 150, 243, 0.2);
+    color: #2196F3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .requestarr-container {
@@ -527,5 +845,34 @@ input:checked + .toggle-slider:before {
     .search-section,
     .settings-section {
         padding: 20px;
+    }
+    
+    /* Mobile modal adjustments */
+    .granular-modal-overlay {
+        padding: 10px;
+    }
+    
+    .granular-modal {
+        max-height: 90vh;
+    }
+    
+    .granular-modal-header,
+    .request-options,
+    .seasons-container,
+    .granular-modal-actions {
+        padding: 15px 20px;
+    }
+    
+    .granular-modal-actions {
+        flex-direction: column;
+    }
+    
+    .episode-title,
+    .episode-date {
+        display: none; /* Hide episode titles and dates on mobile for space */
+    }
+    
+    .episode-label {
+        justify-content: flex-start;
     }
 } 

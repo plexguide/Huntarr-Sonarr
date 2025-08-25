@@ -300,16 +300,17 @@ class RequestarrAPI:
                             'episode_stats': f'{episode_file_count}/{episode_count}'
                         }
                     else:
-                        # Missing episodes - allow requesting missing ones
+                        # Missing episodes - allow requesting missing ones or specific seasons
                         missing_count = episode_count - episode_file_count
                         return {
-                            'status': 'available_to_request_missing',
-                            'message': f'Request missing episodes ({episode_file_count}/{episode_count}, {missing_count} missing)',
+                            'status': 'available_to_request_granular',
+                            'message': f'Request missing episodes or seasons ({episode_file_count}/{episode_count}, {missing_count} missing)',
                             'in_app': True,
                             'already_requested': False,
                             'episode_stats': f'{episode_file_count}/{episode_count}',
                             'missing_episodes': missing_count,
-                            'series_id': exists_result.get('series_id')
+                            'series_id': exists_result.get('series_id'),
+                            'supports_granular': True
                         }
                 else:
                     # Radarr or other apps - simple exists check
@@ -320,22 +321,41 @@ class RequestarrAPI:
                         'already_requested': False
                     }
             else:
-                return {
-                    'status': 'available_to_request',
-                    'message': 'Available to request',
-                    'in_app': False,
-                    'already_requested': False
-                }
+                # For Sonarr, allow granular selection even for new series
+                if app_type == 'sonarr' and media_type == 'tv':
+                    return {
+                        'status': 'available_to_request_granular',
+                        'message': 'Available to request',
+                        'in_app': False,
+                        'already_requested': False,
+                        'supports_granular': True
+                    }
+                else:
+                    return {
+                        'status': 'available_to_request',
+                        'message': 'Available to request',
+                        'in_app': False,
+                        'already_requested': False
+                    }
                 
         except Exception as e:
             logger.error(f"Error checking availability in {app_type}: {e}")
             # If we can't check the app, still allow requesting
-            return {
-                'status': 'available_to_request',
-                'message': 'Available to request (could not verify library)',
-                'in_app': False,
-                'already_requested': False
-            }
+            if app_type == 'sonarr' and media_type == 'tv':
+                return {
+                    'status': 'available_to_request_granular',
+                    'message': 'Available to request (could not verify library)',
+                    'in_app': False,
+                    'already_requested': False,
+                    'supports_granular': True
+                }
+            else:
+                return {
+                    'status': 'available_to_request',
+                    'message': 'Available to request (could not verify library)',
+                    'in_app': False,
+                    'already_requested': False
+                }
     
     def get_enabled_instances(self) -> Dict[str, List[Dict[str, str]]]:
         """Get enabled and properly configured Sonarr and Radarr instances"""
@@ -727,6 +747,202 @@ class RequestarrAPI:
                 'message': f'Error adding movie to Radarr: {str(e)}'
             }
     
+    def get_series_details(self, tmdb_id: int, app_type: str, instance_name: str) -> Dict[str, Any]:
+        """Get detailed season and episode information for a TV series"""
+        if app_type != 'sonarr':
+            return {
+                'success': False,
+                'message': 'Series details only available for Sonarr instances'
+            }
+        
+        try:
+            # Get instance configuration
+            app_config = self.db.get_app_config(app_type)
+            if not app_config or not app_config.get('instances'):
+                return {
+                    'success': False,
+                    'message': 'No Sonarr instances configured'
+                }
+            
+            # Find the specific instance
+            target_instance = None
+            for instance in app_config['instances']:
+                if instance.get('name') == instance_name:
+                    target_instance = instance
+                    break
+            
+            if not target_instance:
+                return {
+                    'success': False,
+                    'message': f'Sonarr instance "{instance_name}" not found'
+                }
+            
+            url = (target_instance.get('api_url', '') or target_instance.get('url', '')).rstrip('/')
+            api_key = target_instance.get('api_key', '')
+            
+            if not url or not api_key:
+                # If no connection info, still provide basic season structure from TMDB
+                return self._get_basic_series_info_from_tmdb(tmdb_id)
+            
+            # Check if series exists in Sonarr
+            exists_result = self._check_media_exists(tmdb_id, 'tv', target_instance, app_type)
+            
+            if exists_result.get('exists'):
+                # Series exists - get detailed episode information
+                series_id = exists_result['series_id']
+                series_data = exists_result['series_data']
+                
+                # Get episodes for this series
+                episodes_response = requests.get(
+                    f"{url}/api/v3/episode",
+                    headers={'X-Api-Key': api_key},
+                    params={'seriesId': series_id},
+                    timeout=10
+                )
+                episodes_response.raise_for_status()
+                episodes = episodes_response.json()
+                
+                # Organize episodes by season
+                seasons_data = {}
+                for episode in episodes:
+                    season_num = episode.get('seasonNumber', 0)
+                    if season_num == 0:  # Skip specials for now
+                        continue
+                    
+                    if season_num not in seasons_data:
+                        seasons_data[season_num] = {
+                            'season_number': season_num,
+                            'episodes': [],
+                            'total_episodes': 0,
+                            'downloaded_episodes': 0,
+                            'monitored': True  # Default to monitored
+                        }
+                    
+                    episode_data = {
+                        'episode_number': episode.get('episodeNumber', 0),
+                        'title': episode.get('title', f"Episode {episode.get('episodeNumber', 0)}"),
+                        'air_date': episode.get('airDate', ''),
+                        'has_file': episode.get('hasFile', False),
+                        'monitored': episode.get('monitored', True),
+                        'episode_id': episode.get('id')
+                    }
+                    
+                    seasons_data[season_num]['episodes'].append(episode_data)
+                    seasons_data[season_num]['total_episodes'] += 1
+                    if episode_data['has_file']:
+                        seasons_data[season_num]['downloaded_episodes'] += 1
+                
+                # Convert to sorted list
+                seasons_list = []
+                for season_num in sorted(seasons_data.keys()):
+                    season = seasons_data[season_num]
+                    season['episodes'].sort(key=lambda x: x['episode_number'])
+                    seasons_list.append(season)
+                
+                return {
+                    'success': True,
+                    'series_exists': True,
+                    'series_id': series_id,
+                    'series_title': series_data.get('title', ''),
+                    'seasons': seasons_list
+                }
+            
+            else:
+                # Series doesn't exist - get season info from Sonarr lookup
+                try:
+                    lookup_response = requests.get(
+                        f"{url}/api/v3/series/lookup",
+                        headers={'X-Api-Key': api_key},
+                        params={'term': f'tmdb:{tmdb_id}'},
+                        timeout=10
+                    )
+                    lookup_response.raise_for_status()
+                    lookup_results = lookup_response.json()
+                    
+                    if not lookup_results:
+                        # Fall back to TMDB if Sonarr lookup fails
+                        return self._get_basic_series_info_from_tmdb(tmdb_id)
+                    
+                    series_data = lookup_results[0]
+                    seasons_list = []
+                    
+                    # Process seasons from lookup data
+                    for season in series_data.get('seasons', []):
+                        season_num = season.get('seasonNumber', 0)
+                        if season_num == 0:  # Skip specials
+                            continue
+                        
+                        seasons_list.append({
+                            'season_number': season_num,
+                            'episodes': [],  # Episodes not available until series is added
+                            'total_episodes': season.get('statistics', {}).get('episodeCount', 0),
+                            'downloaded_episodes': 0,
+                            'monitored': season.get('monitored', True)
+                        })
+                    
+                    seasons_list.sort(key=lambda x: x['season_number'])
+                    
+                    return {
+                        'success': True,
+                        'series_exists': False,
+                        'series_title': series_data.get('title', ''),
+                        'seasons': seasons_list
+                    }
+                    
+                except Exception as lookup_error:
+                    logger.warning(f"Sonarr lookup failed, falling back to TMDB: {lookup_error}")
+                    return self._get_basic_series_info_from_tmdb(tmdb_id)
+                
+        except Exception as e:
+            logger.error(f"Error getting series details: {e}")
+            # Fall back to basic TMDB info if everything else fails
+            return self._get_basic_series_info_from_tmdb(tmdb_id)
+    
+    def _get_basic_series_info_from_tmdb(self, tmdb_id: int) -> Dict[str, Any]:
+        """Get basic series information from TMDB as fallback"""
+        try:
+            api_key = self.get_tmdb_api_key()
+            
+            # Get series details from TMDB
+            response = requests.get(
+                f"{self.tmdb_base_url}/tv/{tmdb_id}",
+                params={'api_key': api_key},
+                timeout=10
+            )
+            response.raise_for_status()
+            series_data = response.json()
+            
+            seasons_list = []
+            for season in series_data.get('seasons', []):
+                season_num = season.get('season_number', 0)
+                if season_num == 0:  # Skip specials
+                    continue
+                
+                seasons_list.append({
+                    'season_number': season_num,
+                    'episodes': [],
+                    'total_episodes': season.get('episode_count', 0),
+                    'downloaded_episodes': 0,
+                    'monitored': True
+                })
+            
+            seasons_list.sort(key=lambda x: x['season_number'])
+            
+            return {
+                'success': True,
+                'series_exists': False,
+                'series_title': series_data.get('name', ''),
+                'seasons': seasons_list,
+                'fallback_source': 'tmdb'
+            }
+            
+        except Exception as e:
+            logger.error(f"Error getting basic series info from TMDB: {e}")
+            return {
+                'success': False,
+                'message': f'Unable to get series information: {str(e)}'
+            }
+
     def _add_series_to_sonarr(self, tmdb_id: int, url: str, api_key: str) -> Dict[str, Any]:
         """Add series to Sonarr"""
         try:

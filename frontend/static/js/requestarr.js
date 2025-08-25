@@ -575,7 +575,7 @@ class RequestarrModule {
                         <div class="seasons-container">
                             <h4>Select Seasons & Episodes</h4>
                             <div class="seasons-list">
-                                ${this.createSeasonsHTML(seriesDetails.seasons, isMobile)}
+                                ${this.createSeasonsHTML(seriesDetails.seasons, isMobile, item.tmdb_id)}
                             </div>
                         </div>
                         <div class="granular-modal-actions">
@@ -600,35 +600,46 @@ class RequestarrModule {
         });
     }
     
-    createSeasonsHTML(seasons, isMobile) {
+    createSeasonsHTML(seasons, isMobile, tmdbId) {
+        const requestedItems = this.getRequestedItems(tmdbId);
+        
         return seasons.map(season => {
             const isComplete = season.downloaded_episodes >= season.total_episodes && season.total_episodes > 0;
             const hasEpisodes = season.episodes && season.episodes.length > 0;
+            const isRequested = requestedItems.seasons.includes(season.season_number);
+            const isDisabled = isComplete || isRequested;
+            
+            let statusBadge = '';
+            if (isComplete) {
+                statusBadge = '<span class="complete-badge">Complete</span>';
+            } else if (isRequested) {
+                statusBadge = '<span class="requested-badge">Requested</span>';
+            }
             
             return `
-                <div class="season-item ${isComplete ? 'season-complete' : ''}" data-season="${season.season_number}">
+                <div class="season-item ${isComplete ? 'season-complete' : ''} ${isRequested ? 'season-requested' : ''}" data-season="${season.season_number}">
                     <div class="season-header">
                         <div class="season-checkbox-container">
                             <input type="checkbox" 
                                    id="season-${season.season_number}" 
                                    class="season-checkbox"
-                                   ${isComplete ? 'disabled' : ''}
+                                   ${isDisabled ? 'disabled' : ''}
                                    data-season="${season.season_number}">
                             <label for="season-${season.season_number}" class="season-label">
                                 <span class="season-title">Season ${season.season_number}</span>
                                 <span class="season-stats">${season.downloaded_episodes}/${season.total_episodes} episodes</span>
-                                ${isComplete ? '<span class="complete-badge">Complete</span>' : ''}
+                                ${statusBadge}
                             </label>
                         </div>
-                        ${hasEpisodes && !isComplete ? `
+                        ${hasEpisodes && !isDisabled ? `
                             <button class="season-expand-btn" data-season="${season.season_number}">
                                 <span class="expand-icon">▼</span>
                             </button>
                         ` : ''}
                     </div>
-                    ${hasEpisodes && !isComplete ? `
+                    ${hasEpisodes && !isDisabled ? `
                         <div class="episodes-container" data-season="${season.season_number}" style="display: none;">
-                            ${this.createEpisodesHTML(season.episodes, season.season_number, isMobile)}
+                            ${this.createEpisodesHTML(season.episodes, season.season_number, isMobile, requestedItems)}
                         </div>
                     ` : ''}
                 </div>
@@ -636,25 +647,36 @@ class RequestarrModule {
         }).join('');
     }
     
-    createEpisodesHTML(episodes, seasonNumber, isMobile) {
+    createEpisodesHTML(episodes, seasonNumber, isMobile, requestedItems) {
         return episodes.map(episode => {
             const isDownloaded = episode.has_file;
+            const isRequested = requestedItems.episodes.some(req => 
+                req.season === seasonNumber && req.episode === episode.episode_number
+            );
+            const isDisabled = isDownloaded || isRequested;
             const airDate = episode.air_date ? new Date(episode.air_date).toLocaleDateString() : '';
             
+            let statusBadge = '';
+            if (isDownloaded) {
+                statusBadge = '<span class="downloaded-badge">Downloaded</span>';
+            } else if (isRequested) {
+                statusBadge = '<span class="requested-badge">Requested</span>';
+            }
+            
             return `
-                <div class="episode-item ${isDownloaded ? 'episode-downloaded' : ''}" data-episode="${episode.episode_number}">
+                <div class="episode-item ${isDownloaded ? 'episode-downloaded' : ''} ${isRequested ? 'episode-requested' : ''}" data-episode="${episode.episode_number}">
                     <div class="episode-checkbox-container">
                         <input type="checkbox" 
                                id="episode-${seasonNumber}-${episode.episode_number}" 
                                class="episode-checkbox"
-                               ${isDownloaded ? 'disabled' : ''}
+                               ${isDisabled ? 'disabled' : ''}
                                data-season="${seasonNumber}"
                                data-episode="${episode.episode_number}">
                         <label for="episode-${seasonNumber}-${episode.episode_number}" class="episode-label">
                             <span class="episode-number">S${seasonNumber.toString().padStart(2, '0')}E${episode.episode_number.toString().padStart(2, '0')}</span>
                             ${!isMobile && episode.title ? `<span class="episode-title">${episode.title}</span>` : ''}
                             ${!isMobile && airDate ? `<span class="episode-date">${airDate}</span>` : ''}
-                            ${isDownloaded ? '<span class="downloaded-badge">Downloaded</span>' : ''}
+                            ${statusBadge}
                         </label>
                     </div>
                 </div>
@@ -816,6 +838,27 @@ class RequestarrModule {
         const checkedSeasons = modal.querySelectorAll('.season-checkbox:checked');
         const checkedEpisodes = modal.querySelectorAll('.episode-checkbox:checked');
         
+        // Track what was requested
+        const requestedSeasons = [];
+        const requestedEpisodes = [];
+        
+        checkedSeasons.forEach(checkbox => {
+            requestedSeasons.push(parseInt(checkbox.dataset.season));
+        });
+        
+        checkedEpisodes.forEach(checkbox => {
+            const seasonNum = parseInt(checkbox.dataset.season);
+            const episodeNum = parseInt(checkbox.dataset.episode);
+            // Only add if the whole season wasn't selected
+            const seasonCheckbox = modal.querySelector(`.season-checkbox[data-season="${seasonNum}"]`);
+            if (!seasonCheckbox.checked) {
+                requestedEpisodes.push({ season: seasonNum, episode: episodeNum });
+            }
+        });
+        
+        // Store the requested items in localStorage
+        this.saveRequestedItems(item.tmdb_id, requestedSeasons, requestedEpisodes);
+        
         // For now, show notification about granular selection and fall back to simple request
         const selectedCount = checkedSeasons.length + checkedEpisodes.length;
         this.showNotification(`Granular selection (${selectedCount} items) coming soon! Using entire series request for now.`, 'info');
@@ -827,24 +870,81 @@ class RequestarrModule {
         const statusElement = card?.querySelector('.availability-status');
         
         if (button && statusElement) {
-            // Update to show partial request status
-            button.textContent = 'Request More';
-            button.className = 'request-btn btn-warning'; // Use warning style to indicate partial
-            button.disabled = false; // Keep enabled for additional requests
+            // Check if all seasons are now requested
+            const allRequestedItems = this.getRequestedItems(item.tmdb_id);
+            const totalSeasons = modal.querySelectorAll('.season-checkbox').length;
+            const isFullyRequested = allRequestedItems.seasons.length >= totalSeasons;
             
-            statusElement.className = 'availability-status status-partial-request';
-            statusElement.innerHTML = '<span class="status-icon">📺</span><span class="status-text">Partially Requested</span>';
-            
-            // Update the item data to reflect partial request
-            if (this.itemData[cardId]) {
-                this.itemData[cardId].availability = {
-                    ...this.itemData[cardId].availability,
-                    status: 'partially_requested',
-                    message: 'Some episodes requested - click to request more',
-                    supports_granular: true
-                };
+            if (isFullyRequested) {
+                // All seasons requested - show as fully requested
+                button.textContent = 'Already Requested';
+                button.className = 'request-btn btn-disabled';
+                button.disabled = true;
+                
+                statusElement.className = 'availability-status status-requested';
+                statusElement.innerHTML = '<span class="status-icon">⏳</span><span class="status-text">Requested</span>';
+                
+                // Update item data
+                if (this.itemData[cardId]) {
+                    this.itemData[cardId].availability = {
+                        ...this.itemData[cardId].availability,
+                        status: 'requested',
+                        message: 'Previously requested',
+                        supports_granular: false
+                    };
+                }
+            } else {
+                // Partial request - keep button active
+                button.textContent = 'Request More';
+                button.className = 'request-btn btn-warning';
+                button.disabled = false;
+                
+                statusElement.className = 'availability-status status-partial-request';
+                statusElement.innerHTML = '<span class="status-icon">📺</span><span class="status-text">Partially Requested</span>';
+                
+                // Update item data
+                if (this.itemData[cardId]) {
+                    this.itemData[cardId].availability = {
+                        ...this.itemData[cardId].availability,
+                        status: 'partially_requested',
+                        message: 'Some episodes requested - click to request more',
+                        supports_granular: true
+                    };
+                }
             }
         }
+    }
+    
+    saveRequestedItems(tmdbId, seasons, episodes) {
+        const key = `requestarr_requested_${tmdbId}`;
+        const existing = this.getRequestedItems(tmdbId);
+        
+        // Merge with existing requests
+        const allSeasons = [...new Set([...existing.seasons, ...seasons])];
+        const allEpisodes = [...existing.episodes, ...episodes];
+        
+        const requestData = {
+            seasons: allSeasons,
+            episodes: allEpisodes,
+            timestamp: Date.now()
+        };
+        
+        localStorage.setItem(key, JSON.stringify(requestData));
+    }
+    
+    getRequestedItems(tmdbId) {
+        const key = `requestarr_requested_${tmdbId}`;
+        const stored = localStorage.getItem(key);
+        
+        if (stored) {
+            try {
+                return JSON.parse(stored);
+            } catch (e) {
+                console.error('Error parsing requested items:', e);
+            }
+        }
+        
+        return { seasons: [], episodes: [], timestamp: 0 };
     }
 
     showNotification(message, type = 'info') {

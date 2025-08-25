@@ -699,6 +699,25 @@ input:checked + .toggle-slider:before {
     font-weight: 600;
 }
 
+.requested-badge {
+    background: rgba(255, 152, 0, 0.8);
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.season-item.season-requested {
+    opacity: 0.6;
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.episode-item.episode-requested {
+    opacity: 0.6;
+    background: rgba(255, 152, 0, 0.05);
+}
+
 .season-expand-btn {
     background: none;
     border: none;

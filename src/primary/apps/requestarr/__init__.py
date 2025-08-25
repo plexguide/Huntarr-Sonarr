@@ -866,16 +866,44 @@ class RequestarrAPI:
                     series_data = lookup_results[0]
                     seasons_list = []
                     
+                    logger.debug(f"Sonarr lookup returned {len(series_data.get('seasons', []))} seasons for TMDB ID {tmdb_id}")
+                    
                     # Process seasons from lookup data
                     for season in series_data.get('seasons', []):
                         season_num = season.get('seasonNumber', 0)
                         if season_num == 0:  # Skip specials
                             continue
                         
+                        # Try multiple ways to get episode count from Sonarr data
+                        episode_count = 0
+                        if 'statistics' in season:
+                            episode_count = season['statistics'].get('episodeCount', 0)
+                        elif 'episodeCount' in season:
+                            episode_count = season.get('episodeCount', 0)
+                        elif 'totalEpisodeCount' in season:
+                            episode_count = season.get('totalEpisodeCount', 0)
+                        
+                        # If still 0, try to get from TMDB as backup
+                        if episode_count == 0:
+                            try:
+                                tmdb_season_response = requests.get(
+                                    f"{self.tmdb_base_url}/tv/{tmdb_id}/season/{season_num}",
+                                    params={'api_key': self.get_tmdb_api_key()},
+                                    timeout=5
+                                )
+                                if tmdb_season_response.status_code == 200:
+                                    tmdb_season_data = tmdb_season_response.json()
+                                    episode_count = len(tmdb_season_data.get('episodes', []))
+                                    logger.debug(f"Got episode count from TMDB for season {season_num}: {episode_count}")
+                            except Exception as tmdb_error:
+                                logger.debug(f"Could not get episode count from TMDB for season {season_num}: {tmdb_error}")
+                        
+                        logger.debug(f"Season {season_num} final episode count: {episode_count}")
+                        
                         seasons_list.append({
                             'season_number': season_num,
                             'episodes': [],  # Episodes not available until series is added
-                            'total_episodes': season.get('statistics', {}).get('episodeCount', 0),
+                            'total_episodes': episode_count,
                             'downloaded_episodes': 0,
                             'monitored': season.get('monitored', True)
                         })
@@ -918,10 +946,27 @@ class RequestarrAPI:
                 if season_num == 0:  # Skip specials
                     continue
                 
+                # Get detailed episode count for each season from TMDB
+                episode_count = season.get('episode_count', 0)
+                
+                # If episode_count is 0 or missing, try to get detailed season info
+                if episode_count == 0:
+                    try:
+                        season_response = requests.get(
+                            f"{self.tmdb_base_url}/tv/{tmdb_id}/season/{season_num}",
+                            params={'api_key': api_key},
+                            timeout=5
+                        )
+                        if season_response.status_code == 200:
+                            season_data = season_response.json()
+                            episode_count = len(season_data.get('episodes', []))
+                    except Exception as season_error:
+                        logger.debug(f"Could not get detailed season info from TMDB for season {season_num}: {season_error}")
+                
                 seasons_list.append({
                     'season_number': season_num,
                     'episodes': [],
-                    'total_episodes': season.get('episode_count', 0),
+                    'total_episodes': episode_count,
                     'downloaded_episodes': 0,
                     'monitored': True
                 })
